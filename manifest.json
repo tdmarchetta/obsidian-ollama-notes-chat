@@ -1,0 +1,13 @@
+{
+  "id": "ollama-notes-chat",
+  "name": "Ollama Notes Chat",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Chat with your notes in a right sidebar using a remote Ollama server.",
+  "author": "Taylor Marchetta",
+  "authorUrl": "https://buymeacoffee.com/tdmarchetta",
+  "fundingUrl": {
+    "Buy Me a Coffee": "https://buymeacoffee.com/tdmarchetta"
+  },
+  "isDesktopOnly": true
+}

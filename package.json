@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-ollama-notes-chat",
+  "version": "0.1.0",
+  "description": "Chat with your notes in a right sidebar using a remote Ollama server.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": ["obsidian", "ollama", "ai", "chat"],
+  "author": "Taylor Marchetta",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "latest",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  }
+}

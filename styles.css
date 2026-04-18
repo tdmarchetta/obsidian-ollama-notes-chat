@@ -1,0 +1,700 @@
+/* ==========================================================================
+   Ollama Notes Chat — sidebar styles
+   Scoped under .ollama-chat-view so nothing leaks into notes.
+   Uses Obsidian CSS variables so it inherits the active theme.
+   ========================================================================== */
+
+.ollama-chat-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	color: var(--text-normal);
+	background-color: var(--background-primary);
+	font-size: var(--font-ui-medium);
+	font-family: var(--font-interface);
+}
+
+/* Obsidian's default view-content adds padding we don't want. */
+.workspace-leaf-content[data-type="ollama-notes-chat-view"] .view-content {
+	padding: 0;
+}
+
+/* ---------- header ---------- */
+
+.ollama-chat-view .ollama-chat-header {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	min-height: 40px;
+}
+
+.ollama-chat-view .ollama-chat-title {
+	font-weight: var(--font-semibold, 600);
+	font-size: var(--font-ui-medium);
+	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ollama-chat-view .ollama-chat-header-actions {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+.ollama-chat-view .ollama-chat-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border-radius: 6px;
+	background: transparent;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	box-shadow: none;
+}
+
+.ollama-chat-view .ollama-chat-icon-btn:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.ollama-chat-view .ollama-chat-icon-btn .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+/* ---------- subheader (context + model chips) ---------- */
+
+.ollama-chat-view .ollama-chat-subheader {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	border-bottom: 1px solid var(--background-modifier-border);
+	flex-shrink: 0;
+	cursor: pointer;
+	user-select: none;
+}
+
+.ollama-chat-view .ollama-chat-subheader:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+/* ---------- message list ---------- */
+
+.ollama-chat-view .ollama-chat-list {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	padding: 16px 12px 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	scrollbar-gutter: stable;
+}
+
+/* ---------- empty state ---------- */
+
+.ollama-chat-view .ollama-chat-empty {
+	margin: auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	padding: 24px 12px;
+	text-align: center;
+	color: var(--text-muted);
+	max-width: 360px;
+}
+
+.ollama-chat-view .ollama-chat-empty-title {
+	font-size: 1.25em;
+	font-weight: var(--font-semibold, 600);
+	color: var(--text-normal);
+}
+
+.ollama-chat-view .ollama-chat-empty-hint {
+	font-size: var(--font-ui-small);
+	line-height: 1.4;
+}
+
+.ollama-chat-view .ollama-chat-presets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	justify-content: center;
+	margin-top: 4px;
+}
+
+.ollama-chat-view .ollama-chat-preset {
+	padding: 6px 12px;
+	border-radius: 999px;
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+	font-family: var(--font-monospace);
+	cursor: pointer;
+	box-shadow: none;
+	transition: background-color 80ms ease;
+}
+
+.ollama-chat-view .ollama-chat-preset:hover {
+	background-color: var(--background-modifier-hover);
+	border-color: var(--interactive-accent);
+}
+
+/* ---------- messages ---------- */
+
+.ollama-chat-view .ollama-chat-msg {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	max-width: 100%;
+}
+
+.ollama-chat-view .ollama-chat-msg-label {
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold, 600);
+	color: var(--text-muted);
+	letter-spacing: 0.02em;
+}
+
+/* User: right-aligned soft bubble */
+.ollama-chat-view .ollama-chat-msg-user {
+	align-items: flex-end;
+}
+
+.ollama-chat-view .ollama-chat-msg-user .ollama-chat-msg-body {
+	max-width: 90%;
+	padding: 10px 14px;
+	background-color: var(--background-secondary);
+	border-radius: 18px 18px 4px 18px;
+	white-space: pre-wrap;
+	word-break: break-word;
+	line-height: 1.45;
+}
+
+.ollama-chat-view .ollama-chat-msg-user .ollama-chat-msg-label {
+	padding-right: 6px;
+}
+
+/* Assistant: full width, no bubble */
+.ollama-chat-view .ollama-chat-msg-assistant {
+	align-items: stretch;
+}
+
+.ollama-chat-view .ollama-chat-msg-assistant .ollama-chat-msg-label {
+	color: var(--text-accent);
+}
+
+.ollama-chat-view .ollama-chat-msg-assistant .ollama-chat-msg-body {
+	width: 100%;
+	line-height: 1.55;
+	color: var(--text-normal);
+}
+
+.ollama-chat-view .ollama-chat-msg-body.markdown-rendered > *:first-child {
+	margin-top: 0;
+}
+
+.ollama-chat-view .ollama-chat-msg-body.markdown-rendered > *:last-child {
+	margin-bottom: 0;
+}
+
+.ollama-chat-view .ollama-chat-msg-body.markdown-rendered p {
+	margin: 0.5em 0;
+}
+
+.ollama-chat-view .ollama-chat-msg-body.markdown-rendered pre {
+	margin: 0.6em 0;
+	border-radius: 8px;
+}
+
+.ollama-chat-view .ollama-chat-msg-body.markdown-rendered code {
+	font-size: 0.9em;
+}
+
+.ollama-chat-view .ollama-chat-placeholder {
+	color: var(--text-faint);
+	font-style: italic;
+	padding: 4px 0;
+}
+
+/* Action row (assistant messages) */
+.ollama-chat-view .ollama-chat-msg-actions {
+	display: flex;
+	gap: 2px;
+	margin-top: 2px;
+	opacity: 0.5;
+	transition: opacity 120ms ease;
+}
+
+.ollama-chat-view .ollama-chat-msg-assistant:hover .ollama-chat-msg-actions,
+.ollama-chat-view .ollama-chat-msg-actions:focus-within {
+	opacity: 1;
+}
+
+.ollama-chat-view .ollama-chat-msg-actions .ollama-chat-icon-btn {
+	width: 26px;
+	height: 26px;
+}
+
+.ollama-chat-view .ollama-chat-msg-actions .ollama-chat-icon-btn .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+/* ---------- input area ---------- */
+
+.ollama-chat-view .ollama-chat-input-wrap {
+	position: relative;
+	flex-shrink: 0;
+	padding: 10px 12px 12px;
+	background-color: var(--background-primary);
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* ChatGPT-style composer: rounded pill with embedded send button */
+.ollama-chat-view .ollama-chat-composer {
+	position: relative;
+	display: flex;
+	align-items: flex-end;
+	background-color: var(--background-primary-alt, var(--background-secondary));
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 22px;
+	padding: 6px 6px 6px 14px;
+	transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.ollama-chat-view .ollama-chat-composer:focus-within {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.ollama-chat-view .ollama-chat-input {
+	flex: 1 1 auto;
+	min-height: 26px;
+	max-height: 160px;
+	padding: 6px 0;
+	border: none;
+	background: transparent;
+	color: var(--text-normal);
+	font-family: inherit;
+	font-size: var(--font-ui-medium);
+	line-height: 1.4;
+	resize: none;
+	outline: none;
+	box-shadow: none;
+}
+
+.ollama-chat-view .ollama-chat-input::placeholder {
+	color: var(--text-faint);
+}
+
+.ollama-chat-view .ollama-chat-send {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	margin-left: 6px;
+	border: none;
+	border-radius: 50%;
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	cursor: pointer;
+	box-shadow: none;
+	flex-shrink: 0;
+	transition: background-color 120ms ease, transform 80ms ease;
+}
+
+.ollama-chat-view .ollama-chat-send:hover {
+	background-color: var(--interactive-accent-hover);
+}
+
+.ollama-chat-view .ollama-chat-send:active {
+	transform: scale(0.95);
+}
+
+.ollama-chat-view .ollama-chat-send .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+.ollama-chat-view .ollama-chat-send--stop {
+	background-color: var(--text-error, #e05656);
+}
+
+.ollama-chat-view .ollama-chat-send--stop:hover {
+	background-color: var(--text-error, #e05656);
+	filter: brightness(1.1);
+}
+
+/* ---------- slash-command completions popup ---------- */
+
+.ollama-chat-view .ollama-chat-completions {
+	position: absolute;
+	left: 12px;
+	right: 12px;
+	bottom: calc(100% - 8px);
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 10px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	max-height: 180px;
+	overflow-y: auto;
+	z-index: 10;
+	padding: 4px;
+}
+
+.ollama-chat-view .ollama-chat-completion {
+	padding: 6px 10px;
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	border-radius: 6px;
+}
+
+.ollama-chat-view .ollama-chat-completion:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.ollama-chat-view .ollama-chat-completion-name {
+	font-weight: var(--font-semibold, 600);
+	font-family: var(--font-monospace);
+	color: var(--text-accent);
+	font-size: var(--font-ui-smaller);
+}
+
+.ollama-chat-view .ollama-chat-completion-template {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ---------- status strip (below composer) ---------- */
+
+.ollama-chat-view .ollama-chat-status-row {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin-top: 6px;
+	padding: 0 4px;
+	min-height: 14px;
+}
+
+.ollama-chat-view .ollama-chat-status {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-faint);
+	text-align: center;
+}
+
+.ollama-chat-view .ollama-status-ok {
+	color: var(--text-faint);
+}
+
+.ollama-chat-view .ollama-status-warn {
+	color: var(--text-warning, #d08770);
+}
+
+.ollama-chat-view .ollama-status-over {
+	color: var(--text-error, #e05656);
+	font-weight: var(--font-semibold, 600);
+}
+
+/* ---------- font-size + compact mode overrides ---------- */
+
+.ollama-chat-view.ollama-font-small {
+	font-size: var(--font-ui-small);
+}
+
+.ollama-chat-view.ollama-font-medium {
+	font-size: var(--font-ui-medium);
+}
+
+.ollama-chat-view.ollama-font-large {
+	font-size: var(--font-ui-larger, calc(var(--font-ui-medium) * 1.1));
+}
+
+.ollama-chat-view.ollama-compact .ollama-chat-list {
+	gap: 12px;
+	padding: 10px 10px 16px;
+}
+
+.ollama-chat-view.ollama-compact .ollama-chat-msg-user .ollama-chat-msg-body {
+	padding: 8px 12px;
+}
+
+.ollama-chat-view.ollama-compact .ollama-chat-header,
+.ollama-chat-view.ollama-compact .ollama-chat-input-wrap {
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+
+/* ==========================================================================
+   Stats modal
+   ========================================================================== */
+
+.ollama-chat-stats-modal {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	font-size: var(--font-ui-small);
+	min-width: 360px;
+}
+
+.ollama-chat-stats-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.ollama-chat-stats-group-title {
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold, 600);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-muted);
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 4px;
+}
+
+.ollama-chat-stats-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.ollama-chat-stats-table tr {
+	border: none;
+}
+
+.ollama-chat-stats-table th,
+.ollama-chat-stats-table td {
+	padding: 4px 8px;
+	text-align: left;
+	vertical-align: top;
+	border: none;
+}
+
+.ollama-chat-stats-table th {
+	color: var(--text-muted);
+	font-weight: normal;
+	width: 45%;
+	white-space: nowrap;
+}
+
+.ollama-chat-stats-table td {
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	word-break: break-word;
+}
+
+.ollama-chat-stats-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* ==========================================================================
+   Settings tab
+   Matches class names from SettingsTab.ts exactly.
+   ========================================================================== */
+
+.ollama-chat-settings {
+	/* Root container — Obsidian's built-in Settings container. Nothing to override here. */
+}
+
+/* Wide system-prompt textarea: stack the Setting vertically so the textarea
+   can span the full width of the settings pane. */
+.ollama-chat-settings .setting-item:has(.ollama-chat-textarea-wide) {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 8px;
+}
+
+.ollama-chat-settings .setting-item:has(.ollama-chat-textarea-wide) .setting-item-control {
+	justify-content: stretch;
+	width: 100%;
+}
+
+.ollama-chat-settings .ollama-chat-textarea-wide {
+	width: 100%;
+	min-height: 7rem;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	resize: vertical;
+}
+
+/* Connection test status line */
+.ollama-chat-connection-status {
+	margin-top: 4px;
+	font-size: var(--font-ui-smaller);
+}
+
+.ollama-conn-ok {
+	color: var(--text-success, var(--text-accent));
+}
+
+.ollama-conn-err {
+	color: var(--text-error, #e05656);
+}
+
+.ollama-conn-neutral {
+	color: var(--text-muted);
+}
+
+/* ---------- slash-command editor ---------- */
+
+.ollama-chat-settings .ollama-chat-slash-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	width: 100%;
+	margin: 8px 0 16px;
+}
+
+.ollama-chat-settings .ollama-chat-slash-row {
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+	gap: 10px;
+	width: 100%;
+	padding: 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background-color: var(--background-secondary);
+	box-sizing: border-box;
+}
+
+.ollama-chat-settings .ollama-chat-slash-name {
+	display: flex;
+	flex: 0 0 10rem;
+	align-items: center;
+	gap: 4px;
+}
+
+.ollama-chat-settings .ollama-chat-slash-slash {
+	color: var(--text-muted);
+	font-family: var(--font-monospace);
+	font-weight: var(--font-semibold, 600);
+	flex-shrink: 0;
+}
+
+.ollama-chat-settings .ollama-chat-slash-name-input {
+	flex: 1 1 auto;
+	width: 100%;
+	min-width: 0;
+	padding: 6px 10px;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.ollama-chat-settings .ollama-chat-slash-name-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.ollama-chat-settings .ollama-chat-slash-template {
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 3.2rem;
+	padding: 8px 10px;
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	font-family: inherit;
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	resize: vertical;
+}
+
+.ollama-chat-settings .ollama-chat-slash-template:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.ollama-chat-settings .ollama-chat-slash-del {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	padding: 0;
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	color: var(--text-muted);
+	cursor: pointer;
+	box-shadow: none;
+	align-self: stretch;
+}
+
+.ollama-chat-settings .ollama-chat-slash-del:hover {
+	color: var(--text-error, #e05656);
+	border-color: var(--text-error, #e05656);
+	background-color: var(--background-modifier-hover);
+}
+
+.ollama-chat-settings .ollama-chat-slash-del .svg-icon {
+	width: 16px;
+	height: 16px;
+}
+
+/* ---------- support / donate ---------- */
+
+.ollama-chat-settings .ollama-chat-support-blurb {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	line-height: 1.5;
+	margin: 4px 0 12px;
+	max-width: 560px;
+}
+
+.ollama-chat-settings .ollama-chat-donate-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 14px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.ollama-chat-settings .ollama-chat-donate-icon {
+	display: inline-flex;
+	align-items: center;
+	color: #ff6b81;
+}
+
+.ollama-chat-settings .ollama-chat-donate-icon .svg-icon {
+	width: 14px;
+	height: 14px;
+	fill: #ff6b81;
+}
