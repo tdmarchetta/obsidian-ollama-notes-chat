@@ -8,6 +8,9 @@ data.json
 # Claude Code local state
 .claude/
 CLAUDE.md
+project.md
+roadmap.md
+dependencies.md
 
 # Self-referential symlink in the project root (your vault alias)
 Obsidian_Plugin_Ollama_Chat

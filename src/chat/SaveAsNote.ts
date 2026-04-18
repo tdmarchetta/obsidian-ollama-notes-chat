@@ -14,7 +14,7 @@ export async function saveConversationAsNote(
 	const filename = sanitizeFilename(
 		fillFilenameTemplate(filenameTemplate, activeTitle),
 	);
-	const path = await uniquePath(app, `${folderPath}/${filename}.md`);
+	const path = uniquePath(app, `${folderPath}/${filename}.md`);
 	const content = renderMarkdown(conversation, activeTitle);
 	const file = await app.vault.create(path, content);
 	new Notice(`Saved chat to ${file.path}`);
@@ -52,7 +52,7 @@ async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	}
 }
 
-async function uniquePath(app: App, basePath: string): Promise<string> {
+function uniquePath(app: App, basePath: string): string {
 	if (!app.vault.getAbstractFileByPath(basePath)) return basePath;
 	const dot = basePath.lastIndexOf(".");
 	const stem = basePath.slice(0, dot);

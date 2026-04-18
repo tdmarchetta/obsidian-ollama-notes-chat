@@ -16,22 +16,34 @@ export interface Message {
 }
 
 export interface ConversationSnapshot {
+	id: string;
+	title: string;
+	titleManuallySet: boolean;
 	messages: Message[];
 	createdAt: number;
 	updatedAt: number;
 }
 
 export class Conversation {
+	id: string;
+	title: string;
+	titleManuallySet: boolean;
 	messages: Message[];
 	createdAt: number;
 	updatedAt: number;
 
-	constructor(snapshot?: ConversationSnapshot) {
+	constructor(snapshot?: Partial<ConversationSnapshot>) {
 		if (snapshot) {
-			this.messages = snapshot.messages.slice();
-			this.createdAt = snapshot.createdAt;
-			this.updatedAt = snapshot.updatedAt;
+			this.id = snapshot.id ?? newId();
+			this.title = snapshot.title ?? "";
+			this.titleManuallySet = snapshot.titleManuallySet ?? false;
+			this.messages = (snapshot.messages ?? []).slice();
+			this.createdAt = snapshot.createdAt ?? Date.now();
+			this.updatedAt = snapshot.updatedAt ?? this.createdAt;
 		} else {
+			this.id = newId();
+			this.title = "";
+			this.titleManuallySet = false;
 			this.messages = [];
 			this.createdAt = Date.now();
 			this.updatedAt = this.createdAt;
@@ -72,14 +84,38 @@ export class Conversation {
 	clear(): void {
 		this.messages = [];
 		this.updatedAt = Date.now();
+		// Auto-title relies on the first user message; once cleared, reset auto-title
+		// so the next user message drives a fresh title (unless user had set one manually).
+		if (!this.titleManuallySet) this.title = "";
 	}
 
 	get isEmpty(): boolean {
 		return this.messages.length === 0;
 	}
 
+	get nonSystemCount(): number {
+		let n = 0;
+		for (const m of this.messages) if (m.role !== "system") n++;
+		return n;
+	}
+
+	setTitle(title: string): void {
+		this.title = title;
+		this.titleManuallySet = true;
+		this.updatedAt = Date.now();
+	}
+
+	autoTitle(): void {
+		if (this.titleManuallySet) return;
+		const t = deriveAutoTitle(this.messages);
+		if (t) this.title = t;
+	}
+
 	toSnapshot(): ConversationSnapshot {
 		return {
+			id: this.id,
+			title: this.title,
+			titleManuallySet: this.titleManuallySet,
 			messages: this.messages.slice(),
 			createdAt: this.createdAt,
 			updatedAt: this.updatedAt,
@@ -99,19 +135,36 @@ export class Conversation {
 		};
 		this.messages.push(msg);
 		this.updatedAt = msg.createdAt;
+		if (msg.role === "user") this.autoTitle();
 		return msg;
 	}
 }
 
-function newId(): string {
+export function newId(): string {
 	const c = (globalThis as { crypto?: Crypto }).crypto;
 	if (c && typeof c.randomUUID === "function") return c.randomUUID();
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function isSnapshot(x: unknown): x is ConversationSnapshot {
+export function deriveAutoTitle(messages: Message[]): string | null {
+	const firstUser = messages.find((m) => m.role === "user");
+	if (!firstUser) return null;
+	let text = firstUser.content.trim();
+	if (text.length === 0) return null;
+	// Strip a leading slash command (e.g. "/summarize ") so chats aren't all titled "/summarize…".
+	const stripped = text.replace(/^\/\w+(\s+|$)/, "").trim();
+	if (stripped.length > 0) text = stripped;
+	text = text.split("\n")[0].trim();
+	if (text.length === 0) return null;
+	if (text.length > 40) text = text.slice(0, 40).trimEnd() + "…";
+	return text;
+}
+
+function isSnapshot(x: unknown): x is Partial<ConversationSnapshot> {
 	if (!x || typeof x !== "object") return false;
 	const s = x as Partial<ConversationSnapshot>;
+	// Tolerate missing new fields (id/title/titleManuallySet) so legacy 0.1.0 snapshots
+	// still validate; constructor + fromSnapshot fill defaults.
 	return (
 		Array.isArray(s.messages) &&
 		typeof s.createdAt === "number" &&

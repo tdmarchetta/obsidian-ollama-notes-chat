@@ -1,12 +1,12 @@
 # Ollama Chat for Obsidian
 
-A right-sidebar chat panel that lets you chat with your notes using a remote Ollama server over its OpenAI-compatible API. Personal-use, local-first — nothing leaves your LAN.
+A right-sidebar chat panel that lets you chat with your notes using a remote Ollama server over its native chat API. Personal-use, local-first — nothing leaves your LAN.
 
 ## Features
 
 - **Right-sidebar chat** — opens from the left ribbon (chat-bubble icon), the command palette, or the editor right-click menu.
 - **Native Obsidian look** — styled with theme CSS variables, so it adapts to any light/dark theme automatically.
-- **Streaming responses** — tokens arrive live via SSE.
+- **Streaming responses** — tokens arrive live over NDJSON.
 - **Context modes** — chat about the current note, the current selection, the current note plus its one-hop linked notes, or no context at all. Tap the subheader to cycle modes.
 - **Markdown rendering** — AI responses are rendered with Obsidian's own markdown renderer: code blocks, callouts, tables, and `[[wikilinks]]` all work.
 - **Slash commands** — `/summarize`, `/expand`, `/rewrite`, `/brainstorm` out of the box, fully editable in settings.
@@ -15,7 +15,8 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 - **Insert into note** — one click to paste an AI response at the cursor in the active editor.
 - **Regenerate** — redo the last response with the same prompt.
 - **Token estimate** — rough context-budget warning turns amber/red as you approach the model's limit.
-- **Conversation persists** across sidebar close/reopen.
+- **Multi-session history** — keep as many parallel chats as you want. The header's history icon opens a drawer listing every conversation with its preview and "last updated" stamp; click any row to switch, click the title to rename in place, trash icon to delete. New chat via the `+` icon or command palette.
+- **Auto-titled conversations** — new chats derive their title from your first message (slash-command prefix stripped). Manual rename sticks forever; the auto-titler never overwrites it.
 
 ## Prerequisites
 
@@ -69,12 +70,12 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 
 	```bash
 	ln -s "/path/to/Obsidian_Plugin_Ollama_Chat" \
-	       "/path/to/vault/.obsidian/plugins/ollama-chat"
+	       "/path/to/vault/.obsidian/plugins/ollama-notes-chat"
 	```
 
-3. In Obsidian, open **Settings → Community plugins**, turn off restricted mode if needed, reload plugins, and enable **Ollama Chat**.
+3. In Obsidian, open **Settings → Community plugins**, turn off restricted mode if needed, reload plugins, and enable **Ollama Notes Chat**.
 
-4. Open **Settings → Ollama Chat**:
+4. Open **Settings → Ollama Notes Chat**:
 	- Set the **Base URL** to your Ollama host, e.g. `http://192.168.1.50:11434`.
 	- Click **Test** — you should see "Connected — N models available".
 	- Pick a model from the dropdown.
@@ -83,7 +84,7 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 
 ## Keyboard shortcuts
 
-Obsidian doesn't bind a default hotkey — assign one in **Settings → Hotkeys** by searching for "Ollama Chat".
+Obsidian doesn't bind a default hotkey — assign one in **Settings → Hotkeys** by searching for "Ollama Notes Chat". The most useful commands to bind: "Open chat", "New chat", and "Open chat history".
 
 ## Per-note overrides
 
@@ -108,11 +109,13 @@ When this note is the active context, the plugin uses these values instead of th
 
 ## Architecture
 
-- `main.ts` — plugin entry; registers the view, ribbon icon, commands, editor menu, and settings tab.
+- `main.ts` — plugin entry; registers the view, ribbon icon, commands, editor menu, settings tab, and owns the conversation store + persistence (including the one-shot 0.1.0 → 0.2.0 migration).
 - `src/view/ChatView.ts` — the sidebar `ItemView` that owns the chat UI, streaming, and rendering.
-- `src/ollama/OllamaClient.ts` — `fetch`-based OpenAI-compatible client with streaming generator.
+- `src/view/HistoryDrawer.ts` — overlay controller for the multi-session history drawer (mounted inside the chat view, not a separate `ItemView`).
+- `src/chat/ConversationStore.ts` — CRUD layer over `ConversationSnapshot[]`; filters empty conversations out of persistence.
+- `src/chat/Conversation.ts` — per-conversation state, auto-titling, and `ConversationSnapshot` shape.
+- `src/ollama/OllamaClient.ts` — `fetch`-based native `/api/chat` client with NDJSON streaming generator; keeps Ollama's timing fields for the stats modal.
 - `src/context/NoteContext.ts` — builds the context block from the active note/selection/linked notes.
-- `src/chat/` — conversation state, slash commands, save-as-note.
 - `src/settings/` — typed settings, defaults, and the settings tab.
 - `styles.css` — scoped under `.ollama-chat-view` / `.ollama-chat-settings`; uses only Obsidian theme variables.
 

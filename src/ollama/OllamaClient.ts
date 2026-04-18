@@ -1,3 +1,5 @@
+import { requestUrl } from "obsidian";
+
 export interface ChatMessage {
 	role: "system" | "user" | "assistant";
 	content: string;
@@ -55,14 +57,16 @@ export class OllamaClient {
 	}
 
 	async listModels(): Promise<string[]> {
-		const res = await fetch(`${this.baseUrl}/api/tags`, {
+		const res = await requestUrl({
+			url: `${this.baseUrl}/api/tags`,
 			method: "GET",
 			headers: { Accept: "application/json" },
+			throw: false,
 		});
-		if (!res.ok) {
-			throw new Error(`Ollama /api/tags returned ${res.status} ${res.statusText}`);
+		if (res.status < 200 || res.status >= 300) {
+			throw new Error(`Ollama /api/tags returned ${res.status}`);
 		}
-		const body = (await res.json()) as { models?: Array<{ name?: string }> };
+		const body = res.json as { models?: Array<{ name?: string }> };
 		const names = (body.models ?? [])
 			.map((m) => m.name)
 			.filter((n): n is string => typeof n === "string" && n.length > 0);
@@ -101,6 +105,10 @@ export class OllamaClient {
 		const startedAt = performance.now();
 		let firstTokenAt: number | null = null;
 
+		// Streaming NDJSON from /api/chat needs a ReadableStream. Obsidian's
+		// requestUrl buffers the full body and would break the live-token UX
+		// this plugin is built around, so fetch stays.
+		// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 		const res = await fetch(`${this.baseUrl}/api/chat`, {
 			method: "POST",
 			headers: {
@@ -144,7 +152,7 @@ export class OllamaClient {
 
 					let parsed: OllamaChatChunk;
 					try {
-						parsed = JSON.parse(line);
+						parsed = JSON.parse(line) as OllamaChatChunk;
 					} catch {
 						continue;
 					}

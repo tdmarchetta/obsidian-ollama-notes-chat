@@ -15,6 +15,7 @@ import { ContextMode, contextLimitForModel } from "../settings/Settings";
 import { saveConversationAsNote } from "../chat/SaveAsNote";
 import { expandTemplate, matchingCompletions, parseSlash } from "../chat/SlashCommands";
 import { StatsModal } from "./StatsModal";
+import { HistoryDrawer } from "./HistoryDrawer";
 
 export const VIEW_TYPE_CHAT = "ollama-notes-chat-view";
 
@@ -40,6 +41,7 @@ export class ChatView extends ItemView {
 	private abortController: AbortController | null = null;
 	private streaming = false;
 
+	private titleEl!: HTMLElement;
 	private subheaderEl!: HTMLElement;
 	private listEl!: HTMLElement;
 	private emptyStateEl!: HTMLElement;
@@ -48,13 +50,15 @@ export class ChatView extends ItemView {
 	private sendBtn!: HTMLButtonElement;
 	private completionsEl!: HTMLElement;
 
+	private historyDrawer: HistoryDrawer | null = null;
+
 	private markdownContainers = new WeakMap<Message, HTMLElement>();
 	private pendingRenderTimer: number | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: OllamaChatPlugin) {
 		super(leaf);
 		this.plugin = plugin;
-		this.conv = new Conversation();
+		this.conv = plugin.store.hydrateActive();
 		this.contextMode = plugin.settings.defaultContextMode;
 	}
 
@@ -63,26 +67,43 @@ export class ChatView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Ollama Notes Chat";
+		return "Ollama notes chat";
 	}
 
 	getIcon(): string {
 		return "messages-square";
 	}
 
-	async onOpen(): Promise<void> {
+	onOpen(): Promise<void> {
 		const root = this.contentEl;
 		root.empty();
 		root.addClass("ollama-chat-view");
 		this.applyFontSize();
 
 		const header = root.createDiv({ cls: "ollama-chat-header" });
-		const title = header.createDiv({ cls: "ollama-chat-title", text: "Ollama Notes Chat" });
-		title.setAttr("aria-label", "Ollama Notes Chat");
+
+		const leftActions = header.createDiv({ cls: "ollama-chat-header-left" });
+		this.iconButton(leftActions, "panel-left-open", "Chat history", () =>
+			this.toggleHistoryDrawer(),
+		);
+
+		this.titleEl = header.createDiv({ cls: "ollama-chat-title" });
+		this.titleEl.setAttr("role", "button");
+		this.titleEl.setAttr("tabindex", "0");
+		this.titleEl.addEventListener("click", () => this.startTitleRename());
+		this.titleEl.addEventListener("keydown", (evt) => {
+			if (evt.key === "Enter" || evt.key === " ") {
+				evt.preventDefault();
+				this.startTitleRename();
+			}
+		});
+		this.refreshTitle();
+
 		const actions = header.createDiv({ cls: "ollama-chat-header-actions" });
 
-		this.iconButton(actions, "trash-2", "Clear conversation", () => this.clearConversation());
-		this.iconButton(actions, "download", "Save as note", () => this.saveAsNote());
+		this.iconButton(actions, "plus", "New chat", () => void this.newChat());
+		this.iconButton(actions, "trash-2", "Clear active chat", () => this.clearConversation());
+		this.iconButton(actions, "download", "Save as note", () => void this.saveAsNote());
 		this.iconButton(actions, "settings", "Open plugin settings", () => this.openSettings());
 
 		this.subheaderEl = root.createDiv({ cls: "ollama-chat-subheader" });
@@ -122,7 +143,7 @@ export class ChatView extends ItemView {
 			attr: { "aria-label": "Send" },
 		});
 		setIcon(this.sendBtn, "arrow-up");
-		this.sendBtn.addEventListener("click", () => this.onSendOrStop());
+		this.sendBtn.addEventListener("click", () => void this.onSendOrStop());
 
 		const statusRow = inputWrap.createDiv({ cls: "ollama-chat-status-row" });
 		this.statusLineEl = statusRow.createSpan({ cls: "ollama-chat-status" });
@@ -131,14 +152,19 @@ export class ChatView extends ItemView {
 		this.updateStatus();
 		this.updateInputPlaceholder();
 
-		await this.restoreConversation();
+		this.conv = this.plugin.store.hydrateActive();
 		this.renderAllMessages();
 		this.refreshEmptyState();
+		this.refreshTitle();
 		this.scrollToBottom();
+		return Promise.resolve();
 	}
 
-	async onClose(): Promise<void> {
+	onClose(): Promise<void> {
 		this.stopGeneration();
+		this.historyDrawer?.destroy();
+		this.historyDrawer = null;
+		return Promise.resolve();
 	}
 
 	onSettingsChanged(): void {
@@ -146,6 +172,17 @@ export class ChatView extends ItemView {
 		this.refreshSubheader();
 		this.updateStatus();
 		this.updateInputPlaceholder();
+		this.maybeRehydrateActive();
+		this.historyDrawer?.scheduleRefresh();
+	}
+
+	focusInput(): void {
+		this.inputEl?.focus();
+	}
+
+	openHistoryDrawer(): void {
+		this.ensureHistoryDrawer();
+		this.historyDrawer?.open();
 	}
 
 	prefillInput(text: string, send = false): void {
@@ -248,9 +285,9 @@ export class ChatView extends ItemView {
 
 		if (m.role === "assistant") {
 			const actions = wrap.createDiv({ cls: "ollama-chat-msg-actions" });
-			this.iconButton(actions, "copy", "Copy response", () => this.copyMessage(m));
+			this.iconButton(actions, "copy", "Copy response", () => void this.copyMessage(m));
 			this.iconButton(actions, "file-plus", "Insert into note", () => this.insertIntoNote(m));
-			this.iconButton(actions, "refresh-cw", "Regenerate", () => this.regenerate(m));
+			this.iconButton(actions, "refresh-cw", "Regenerate", () => void this.regenerate(m));
 			this.iconButton(actions, "bar-chart-3", "Response stats", () => this.showStats(m));
 		}
 		return wrap;
@@ -277,7 +314,7 @@ export class ChatView extends ItemView {
 	private handleLinkClick(evt: MouseEvent): void {
 		const target = evt.target as HTMLElement | null;
 		if (!target) return;
-		const anchor = target.closest("a") as HTMLAnchorElement | null;
+		const anchor = target.closest("a");
 		if (!anchor) return;
 
 		// Internal Obsidian link: [[Note]] or [[Note#^block]]
@@ -340,9 +377,11 @@ export class ChatView extends ItemView {
 
 	private autosizeInput(): void {
 		const ta = this.inputEl;
-		ta.style.height = "auto";
+		ta.setCssProps({ "--ollama-chat-input-height": "auto" });
 		const maxPx = 160;
-		ta.style.height = `${Math.min(ta.scrollHeight, maxPx)}px`;
+		ta.setCssProps({
+			"--ollama-chat-input-height": `${Math.min(ta.scrollHeight, maxPx)}px`,
+		});
 	}
 
 	private updateInputPlaceholder(): void {
@@ -428,7 +467,7 @@ export class ChatView extends ItemView {
 
 		const settings = this.plugin.settings;
 		if (!settings.model) {
-			new Notice("Pick a model in Ollama Chat settings first.");
+			new Notice("Pick a model in Ollama chat settings first.");
 			return;
 		}
 
@@ -524,7 +563,9 @@ export class ChatView extends ItemView {
 			this.flushMarkdownRender(assistant);
 			this.updateStatus();
 			this.scrollToBottom();
-			void this.plugin.saveConversation(this.conv);
+			this.refreshTitle();
+			void this.plugin.saveActiveConversation(this.conv);
+			this.historyDrawer?.scheduleRefresh();
 			this.maybeAutoSave();
 		}
 	}
@@ -549,11 +590,16 @@ export class ChatView extends ItemView {
 	}
 
 	private clearConversation(): void {
-		this.stopGeneration();
+		if (this.streaming) {
+			new Notice("Stop the response before clearing.");
+			return;
+		}
 		this.conv.clear();
 		this.renderAllMessages();
 		this.updateStatus();
-		void this.plugin.saveConversation(this.conv);
+		this.refreshTitle();
+		void this.plugin.saveActiveConversation(this.conv);
+		this.historyDrawer?.scheduleRefresh();
 	}
 
 	private async saveAsNote(): Promise<void> {
@@ -630,8 +676,148 @@ export class ChatView extends ItemView {
 		await this.sendMessage();
 	}
 
-	private async restoreConversation(): Promise<void> {
-		const snapshot = await this.plugin.loadConversation();
-		if (snapshot) this.conv = Conversation.fromSnapshot(snapshot);
+	// ---------- title / drawer ----------
+
+	private refreshTitle(): void {
+		if (!this.titleEl) return;
+		this.titleEl.empty();
+		const hasTitle = this.conv.title.trim().length > 0;
+		const isEmptyChat = this.conv.isEmpty;
+		if (hasTitle) {
+			this.titleEl.createSpan({ cls: "ollama-chat-title-text", text: this.conv.title });
+			setTooltip(this.titleEl, "Click to rename");
+			this.titleEl.removeClass("ollama-chat-title--placeholder");
+		} else {
+			this.titleEl.createSpan({
+				cls: "ollama-chat-title-text",
+				text: isEmptyChat ? "New chat" : "Untitled",
+			});
+			this.titleEl.addClass("ollama-chat-title--placeholder");
+			setTooltip(this.titleEl, isEmptyChat ? "Send a message to auto-title" : "Click to rename");
+		}
+	}
+
+	private startTitleRename(): void {
+		if (!this.titleEl) return;
+		if (this.conv.isEmpty) return;
+		const current = this.conv.title;
+		const input = document.createElement("input");
+		input.type = "text";
+		input.value = current;
+		input.className = "ollama-chat-title-input";
+		this.titleEl.empty();
+		this.titleEl.appendChild(input);
+		input.focus();
+		input.select();
+
+		let done = false;
+		const commit = () => {
+			if (done) return;
+			done = true;
+			const next = input.value.trim();
+			if (next.length === 0 || next === current) {
+				this.refreshTitle();
+				return;
+			}
+			this.conv.setTitle(next);
+			this.refreshTitle();
+			void this.plugin.saveActiveConversation(this.conv);
+			this.historyDrawer?.scheduleRefresh();
+		};
+		const cancel = () => {
+			if (done) return;
+			done = true;
+			this.refreshTitle();
+		};
+
+		input.addEventListener("keydown", (evt) => {
+			if (evt.key === "Enter") {
+				evt.preventDefault();
+				commit();
+			} else if (evt.key === "Escape") {
+				evt.preventDefault();
+				cancel();
+			}
+		});
+		input.addEventListener("blur", commit);
+	}
+
+	private ensureHistoryDrawer(): void {
+		if (this.historyDrawer) return;
+		this.historyDrawer = new HistoryDrawer(this.contentEl, {
+			getRows: () => this.plugin.store.listForDrawer(),
+			getActiveId: () => this.plugin.store.getActiveId(),
+			onNew: () => void this.newChat(),
+			onSelect: (id) => void this.switchToConversation(id),
+			onRename: (id, title) => {
+				void this.plugin.renameConversation(id, title);
+			},
+			onDelete: (id) => void this.deleteConversationFromView(id),
+		});
+	}
+
+	private toggleHistoryDrawer(): void {
+		this.ensureHistoryDrawer();
+		this.historyDrawer?.toggle();
+	}
+
+	private async newChat(): Promise<void> {
+		if (this.streaming) {
+			new Notice("Stop the response before starting a new chat.");
+			return;
+		}
+		await this.plugin.createConversation();
+		this.conv = this.plugin.store.hydrateActive();
+		this.renderAllMessages();
+		this.refreshTitle();
+		this.updateStatus();
+		this.historyDrawer?.scheduleRefresh();
+		this.focusInput();
+	}
+
+	private async switchToConversation(id: string): Promise<void> {
+		if (this.streaming) {
+			new Notice("Stop the response before switching.");
+			return;
+		}
+		const currentId = this.conv.id;
+		if (currentId === id) {
+			this.historyDrawer?.close();
+			return;
+		}
+		// If the current conv is a never-saved empty, discard it.
+		if (this.conv.isEmpty) {
+			this.plugin.store.discardIfEmpty(currentId);
+		}
+		await this.plugin.switchConversation(id);
+		this.conv = this.plugin.store.hydrateActive();
+		this.renderAllMessages();
+		this.refreshTitle();
+		this.updateStatus();
+		this.historyDrawer?.close();
+		this.focusInput();
+	}
+
+	private async deleteConversationFromView(id: string): Promise<void> {
+		if (this.streaming && id === this.conv.id) {
+			new Notice("Stop the response before deleting.");
+			return;
+		}
+		const nextActive = await this.plugin.deleteConversation(id);
+		if (nextActive) await this.plugin.switchConversation(nextActive);
+		this.conv = this.plugin.store.hydrateActive();
+		this.renderAllMessages();
+		this.refreshTitle();
+		this.updateStatus();
+		this.historyDrawer?.scheduleRefresh();
+	}
+
+	private maybeRehydrateActive(): void {
+		const activeId = this.plugin.store.getActiveId();
+		if (activeId && activeId !== this.conv.id) {
+			this.conv = this.plugin.store.hydrateActive();
+			this.renderAllMessages();
+			this.refreshTitle();
+		}
 	}
 }

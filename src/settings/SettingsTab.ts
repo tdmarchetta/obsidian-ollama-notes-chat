@@ -284,9 +284,9 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 			cls: "ollama-chat-slash-name-input",
 		});
 		nameInput.value = cmd.name;
-		nameInput.addEventListener("change", async () => {
+		nameInput.addEventListener("change", () => {
 			this.plugin.settings.slashCommands[idx].name = nameInput.value.trim() || cmd.name;
-			await this.plugin.saveSettings();
+			void this.plugin.saveSettings();
 		});
 
 		const templateInput = row.createEl("textarea", {
@@ -294,17 +294,17 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 			attr: { rows: "2", placeholder: "Template — use {{input}} for user text" },
 		});
 		templateInput.value = cmd.template;
-		templateInput.addEventListener("change", async () => {
+		templateInput.addEventListener("change", () => {
 			this.plugin.settings.slashCommands[idx].template = templateInput.value;
-			await this.plugin.saveSettings();
+			void this.plugin.saveSettings();
 		});
 
 		const delBtn = row.createEl("button", { cls: "ollama-chat-slash-del clickable-icon" });
 		setIcon(delBtn, "trash-2");
 		delBtn.setAttr("aria-label", `Delete /${cmd.name}`);
-		delBtn.addEventListener("click", async () => {
+		delBtn.addEventListener("click", () => {
 			this.plugin.settings.slashCommands.splice(idx, 1);
-			await this.plugin.saveSettings();
+			void this.plugin.saveSettings();
 			redraw();
 		});
 	}
@@ -348,12 +348,12 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		);
 
 		const setting = new Setting(container)
-			.setName("Enjoying Ollama Notes Chat?")
-			.setDesc("One-time or recurring support via Buy Me a Coffee.");
+			.setName("Enjoying Ollama notes chat?")
+			.setDesc("One-time or recurring support via Buy me a coffee.");
 
 		const btn = setting.controlEl.createEl("button", {
 			cls: "mod-cta ollama-chat-donate-btn",
-			attr: { "aria-label": "Donate via Buy Me a Coffee" },
+			attr: { "aria-label": "Donate via Buy me a coffee" },
 		});
 		setIcon(btn.createSpan({ cls: "ollama-chat-donate-icon" }), "heart");
 		btn.createSpan({ text: "Buy me a coffee" });
