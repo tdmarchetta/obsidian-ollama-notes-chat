@@ -93,7 +93,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				dropdown.addOption(this.plugin.settings.model, this.plugin.settings.model);
 				dropdown.setValue(this.plugin.settings.model);
 			} else {
-				dropdown.addOption("", "(None — click refresh)");
+				dropdown.addOption("", "Click refresh to load");
 			}
 			dropdown.onChange(async (v) => {
 				this.plugin.settings.model = v;
@@ -228,7 +228,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				dropdown.addOption(current, current);
 				dropdown.setValue(current);
 			} else {
-				dropdown.addOption("", "(None — click refresh)");
+				dropdown.addOption("", "Click refresh to load");
 			}
 			dropdown.onChange(async (v) => {
 				this.plugin.settings.embedderModel = v;
