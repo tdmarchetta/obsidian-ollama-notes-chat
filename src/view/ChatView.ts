@@ -202,7 +202,7 @@ export class ChatView extends ItemView {
 			text: "Ask about this note",
 		});
 		const hint = this.emptyStateEl.createDiv({ cls: "ollama-chat-empty-hint" });
-		hint.setText("Your messages stream from your Ollama server. Try a preset:");
+		hint.setText("Ollama streams tokens live. Try a preset:");
 		const presets = this.emptyStateEl.createDiv({ cls: "ollama-chat-presets" });
 		const picks = this.plugin.settings.slashCommands.slice(0, 4);
 		for (const cmd of picks) {
@@ -467,7 +467,7 @@ export class ChatView extends ItemView {
 
 		const settings = this.plugin.settings;
 		if (!settings.model) {
-			new Notice("Pick a model in Ollama chat settings first.");
+			new Notice("Pick a model in settings first.");
 			return;
 		}
 
@@ -744,7 +744,7 @@ export class ChatView extends ItemView {
 
 	private ensureHistoryDrawer(): void {
 		if (this.historyDrawer) return;
-		this.historyDrawer = new HistoryDrawer(this.contentEl, {
+		this.historyDrawer = new HistoryDrawer(this.app, this.contentEl, {
 			getRows: () => this.plugin.store.listForDrawer(),
 			getActiveId: () => this.plugin.store.getActiveId(),
 			onNew: () => void this.newChat(),

@@ -11,6 +11,9 @@ CLAUDE.md
 project.md
 roadmap.md
 dependencies.md
+changelog.md
+wiki/
+raw/
 
 # Self-referential symlink in the project root (your vault alias)
 Obsidian_Plugin_Ollama_Chat

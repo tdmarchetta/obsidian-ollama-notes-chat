@@ -49,12 +49,12 @@ export class StatsModal extends Modal {
 		const actions = contentEl.createDiv({ cls: "ollama-chat-stats-actions" });
 		const copyBtn = actions.createEl("button", {
 			cls: "mod-cta",
-			text: "Copy as markdown",
+			text: "Copy as Markdown",
 		});
 		copyBtn.addEventListener("click", () => {
 			void navigator.clipboard.writeText(this.asMarkdown());
 			copyBtn.setText("Copied ✓");
-			setTimeout(() => copyBtn.setText("Copy as markdown"), 1200);
+			setTimeout(() => copyBtn.setText("Copy as Markdown"), 1200);
 		});
 	}
 

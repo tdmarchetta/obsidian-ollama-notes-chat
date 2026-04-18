@@ -1,5 +1,6 @@
-import { setIcon, setTooltip } from "obsidian";
+import { App, setIcon, setTooltip } from "obsidian";
 import type { ConversationSnapshot } from "../chat/Conversation";
+import { ConfirmModal } from "./ConfirmModal";
 
 export interface HistoryDrawerCallbacks {
 	onNew: () => void;
@@ -17,6 +18,7 @@ export interface HistoryDrawerCallbacks {
  */
 export class HistoryDrawer {
 	private root: HTMLElement;
+	private app: App;
 	private scrimEl: HTMLElement | null = null;
 	private drawerEl: HTMLElement | null = null;
 	private listEl: HTMLElement | null = null;
@@ -24,7 +26,8 @@ export class HistoryDrawer {
 	private refreshTimer: number | null = null;
 	private isOpen = false;
 
-	constructor(root: HTMLElement, callbacks: HistoryDrawerCallbacks) {
+	constructor(app: App, root: HTMLElement, callbacks: HistoryDrawerCallbacks) {
+		this.app = app;
 		this.root = root;
 		this.cb = callbacks;
 	}
@@ -160,9 +163,14 @@ export class HistoryDrawer {
 		setTooltip(deleteBtn, "Delete");
 		deleteBtn.addEventListener("click", (evt) => {
 			evt.stopPropagation();
-			const confirmed = window.confirm(`Delete "${title}"? This cannot be undone.`);
-			if (!confirmed) return;
-			this.cb.onDelete(row.id);
+			void new ConfirmModal(
+				this.app,
+				`Delete "${title}"? This cannot be undone.`,
+			)
+				.ask()
+				.then((confirmed) => {
+					if (confirmed) this.cb.onDelete(row.id);
+				});
 		});
 
 		rowEl.addEventListener("click", () => this.cb.onSelect(row.id));

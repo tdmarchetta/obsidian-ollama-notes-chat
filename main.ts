@@ -30,7 +30,7 @@ export default class OllamaChatPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this));
 
-		this.addRibbonIcon("messages-square", "Open Ollama notes chat", () => {
+		this.addRibbonIcon("messages-square", "Ollama chat", () => {
 			void this.activateView();
 		});
 
@@ -80,7 +80,7 @@ export default class OllamaChatPlugin extends Plugin {
 				if (!selection) return;
 				menu.addItem((item) =>
 					item
-						.setTitle("Ask Ollama notes chat about selection")
+						.setTitle("Chat about selection")
 						.setIcon("messages-square")
 						.onClick(async () => {
 							await this.activateView();

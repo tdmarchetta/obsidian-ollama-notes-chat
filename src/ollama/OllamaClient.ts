@@ -107,8 +107,8 @@ export class OllamaClient {
 
 		// Streaming NDJSON from /api/chat needs a ReadableStream. Obsidian's
 		// requestUrl buffers the full body and would break the live-token UX
-		// this plugin is built around, so fetch stays.
-		// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+		// this plugin is built around, so fetch stays. See ADR-002.
+		// eslint-disable-next-line no-restricted-globals -- streaming requires ReadableStream; see ADR-002
 		const res = await fetch(`${this.baseUrl}/api/chat`, {
 			method: "POST",
 			headers: {

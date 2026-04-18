@@ -38,10 +38,10 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 
 		new Setting(container)
 			.setName("Base URL")
-			.setDesc("Where Ollama is listening, e.g. http://192.168.1.50:11434")
+			.setDesc("Ollama server endpoint, e.g. 192.168.1.50:11434")
 			.addText((text) =>
 				text
-					.setPlaceholder("http://localhost:11434")
+					.setPlaceholder("Example: localhost:11434")
 					.setValue(this.plugin.settings.baseUrl)
 					.onChange(async (v) => {
 						this.plugin.settings.baseUrl = v.trim();
@@ -52,9 +52,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 
 		const testSetting = new Setting(container)
 			.setName("Test connection")
-			.setDesc(
-				"Pings /api/tags. Requires OLLAMA_HOST=0.0.0.0:11434 and OLLAMA_ORIGINS=* on the host.",
-			);
+			.setDesc("Verifies the server is reachable from Obsidian.");
 		testSetting.addButton((btn) =>
 			btn
 				.setButtonText("Test")
@@ -76,7 +74,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 
 		const modelSetting = new Setting(container)
 			.setName("Model")
-			.setDesc("Populated live from /api/tags when reachable.");
+			.setDesc("Populated from the server when reachable.");
 		modelSetting.addDropdown((dropdown) => {
 			this.modelDropdownEl = dropdown.selectEl;
 			dropdown.selectEl.empty();
@@ -84,7 +82,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				dropdown.addOption(this.plugin.settings.model, this.plugin.settings.model);
 				dropdown.setValue(this.plugin.settings.model);
 			} else {
-				dropdown.addOption("", "(none — click refresh)");
+				dropdown.addOption("", "(None — click refresh)");
 			}
 			dropdown.onChange(async (v) => {
 				this.plugin.settings.model = v;
@@ -233,7 +231,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(container)
-			.setName("Auto-save every N messages")
+			.setName("Auto-save frequency (messages)")
 			.setDesc("Set to 0 to disable.")
 			.addText((text) =>
 				text
@@ -348,12 +346,12 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		);
 
 		const setting = new Setting(container)
-			.setName("Enjoying Ollama notes chat?")
-			.setDesc("One-time or recurring support via Buy me a coffee.");
+			.setName("Ollama notes chat — enjoying it?")
+			.setDesc("Buy me a coffee — one-time or recurring support.");
 
 		const btn = setting.controlEl.createEl("button", {
 			cls: "mod-cta ollama-chat-donate-btn",
-			attr: { "aria-label": "Donate via Buy me a coffee" },
+			attr: { "aria-label": "Buy me a coffee donation" },
 		});
 		setIcon(btn.createSpan({ cls: "ollama-chat-donate-icon" }), "heart");
 		btn.createSpan({ text: "Buy me a coffee" });
