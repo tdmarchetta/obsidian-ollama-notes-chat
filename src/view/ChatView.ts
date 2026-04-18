@@ -23,6 +23,7 @@ const CONTEXT_MODE_ORDER: ContextMode[] = [
 	"current-note",
 	"current-selection",
 	"linked-notes",
+	"retrieval",
 	"none",
 ];
 
@@ -31,6 +32,7 @@ const CONTEXT_MODE_LABEL: Record<ContextMode, string> = {
 	"current-note": "Current note",
 	"current-selection": "Current selection",
 	"linked-notes": "Current + linked notes",
+	retrieval: "Retrieved passages",
 };
 
 export class ChatView extends ItemView {
@@ -385,12 +387,20 @@ export class ChatView extends ItemView {
 	}
 
 	private updateInputPlaceholder(): void {
-		const placeholder =
-			this.contextMode === "none"
-				? "Ask anything…"
-				: this.contextMode === "current-selection"
-					? "Ask about the selection…"
-					: "Ask about this note…";
+		let placeholder: string;
+		switch (this.contextMode) {
+			case "none":
+				placeholder = "Ask anything…";
+				break;
+			case "current-selection":
+				placeholder = "Ask about the selection…";
+				break;
+			case "retrieval":
+				placeholder = "Ask your vault…";
+				break;
+			default:
+				placeholder = "Ask about this note…";
+		}
 		this.inputEl.setAttr("placeholder", placeholder);
 	}
 
@@ -481,7 +491,20 @@ export class ChatView extends ItemView {
 			: rawInput;
 
 		// Build context.
-		const ctx = await buildContext(this.app, this.contextMode, settings);
+		const ctx = await buildContext(this.app, this.contextMode, settings, {
+			query: llmText,
+			vectorStore: this.plugin.vectorStore,
+			ollama: this.plugin.ollama,
+		});
+		if (this.contextMode === "retrieval") {
+			if (ctx.retrievalStatus === "empty-index") {
+				new Notice("Index is empty — run reindex in settings.", 5000);
+			} else if (ctx.retrievalStatus === "no-model") {
+				new Notice("Pick an embedder model in settings first.", 5000);
+			} else if (ctx.retrievalStatus === "embed-failed") {
+				new Notice("Embedding failed — check your server is reachable.", 5000);
+			}
+		}
 		const sourcePath = ctx.sourceNote?.path;
 
 		// Per-note frontmatter override.

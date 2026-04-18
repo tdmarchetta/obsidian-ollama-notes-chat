@@ -56,6 +56,26 @@ export class OllamaClient {
 		return this.baseUrl;
 	}
 
+	async embed(model: string, input: string | string[]): Promise<number[][]> {
+		const body = { model, input };
+		const res = await requestUrl({
+			url: `${this.baseUrl}/api/embed`,
+			method: "POST",
+			headers: { "Content-Type": "application/json", Accept: "application/json" },
+			body: JSON.stringify(body),
+			throw: false,
+		});
+		if (res.status < 200 || res.status >= 300) {
+			throw new Error(`Ollama /api/embed returned ${res.status}`);
+		}
+		const parsed = res.json as { embeddings?: number[][] };
+		const embeddings = parsed.embeddings;
+		if (!Array.isArray(embeddings) || embeddings.length === 0) {
+			throw new Error("Ollama /api/embed returned no embeddings");
+		}
+		return embeddings;
+	}
+
 	async listModels(): Promise<string[]> {
 		const res = await requestUrl({
 			url: `${this.baseUrl}/api/tags`,

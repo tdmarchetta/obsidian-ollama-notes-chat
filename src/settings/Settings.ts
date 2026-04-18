@@ -1,4 +1,4 @@
-export type ContextMode = "none" | "current-note" | "current-selection" | "linked-notes";
+export type ContextMode = "none" | "current-note" | "current-selection" | "linked-notes" | "retrieval";
 
 export type FontSize = "inherit" | "small" | "medium" | "large";
 
@@ -29,6 +29,11 @@ export interface OllamaChatSettings {
 	compactMode: boolean;
 	fontSize: FontSize;
 	defaultModelContextLimit: number;
+	embedderModel: string;
+	ragTopK: number;
+	ragChunkSize: number;
+	ragChunkOverlap: number;
+	ragAutoIndex: boolean;
 }
 
 export const DEFAULT_SYSTEM_PROMPT =
@@ -71,6 +76,11 @@ export const DEFAULT_SETTINGS: OllamaChatSettings = {
 	compactMode: false,
 	fontSize: "inherit",
 	defaultModelContextLimit: 8192,
+	embedderModel: "nomic-embed-text",
+	ragTopK: 5,
+	ragChunkSize: 800,
+	ragChunkOverlap: 100,
+	ragAutoIndex: true,
 };
 
 export function mergeSettings(

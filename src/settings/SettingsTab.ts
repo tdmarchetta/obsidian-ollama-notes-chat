@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, setIcon } from "obsidian";
+import { App, ButtonComponent, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type OllamaChatPlugin from "../../main";
 import {
 	ContextMode,
@@ -10,7 +10,12 @@ import {
 export class OllamaChatSettingTab extends PluginSettingTab {
 	private plugin: OllamaChatPlugin;
 	private modelDropdownEl: HTMLSelectElement | null = null;
+	private embedderDropdownEl: HTMLSelectElement | null = null;
 	private connectionStatusEl: HTMLElement | null = null;
+	private ragStatusEl: HTMLElement | null = null;
+	private ragProgressFillEl: HTMLElement | null = null;
+	private reindexBtn: ButtonComponent | null = null;
+	private unsubscribeProgress: (() => void) | null = null;
 
 	constructor(app: App, plugin: OllamaChatPlugin) {
 		super(app, plugin);
@@ -25,10 +30,16 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		this.renderConnection(containerEl);
 		this.renderGeneration(containerEl);
 		this.renderContext(containerEl);
+		this.renderRag(containerEl);
 		this.renderConversations(containerEl);
 		this.renderSlashCommands(containerEl);
 		this.renderAppearance(containerEl);
 		this.renderSupport(containerEl);
+	}
+
+	hide(): void {
+		this.unsubscribeProgress?.();
+		this.unsubscribeProgress = null;
 	}
 
 	// ---------- sections ----------
@@ -170,6 +181,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 					.addOption("current-note", "Current note")
 					.addOption("current-selection", "Current selection")
 					.addOption("linked-notes", "Current + linked notes")
+					.addOption("retrieval", "Retrieved passages")
 					.setValue(this.plugin.settings.defaultContextMode)
 					.onChange(async (v) => {
 						this.plugin.settings.defaultContextMode = v as ContextMode;
@@ -200,6 +212,177 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}),
 			);
+	}
+
+	private renderRag(container: HTMLElement): void {
+		new Setting(container).setName("Retrieval").setHeading();
+
+		const embedderSetting = new Setting(container)
+			.setName("Embedder model")
+			.setDesc("Model used to embed notes for retrieval. Kept separate from the chat model.");
+		embedderSetting.addDropdown((dropdown) => {
+			this.embedderDropdownEl = dropdown.selectEl;
+			dropdown.selectEl.empty();
+			const current = this.plugin.settings.embedderModel;
+			if (current) {
+				dropdown.addOption(current, current);
+				dropdown.setValue(current);
+			} else {
+				dropdown.addOption("", "(None — click refresh)");
+			}
+			dropdown.onChange(async (v) => {
+				this.plugin.settings.embedderModel = v;
+				await this.plugin.saveSettings();
+			});
+		});
+		embedderSetting.addExtraButton((btn) =>
+			btn
+				.setIcon("refresh-cw")
+				.setTooltip("Refresh model list")
+				.onClick(() => void this.refreshEmbedderDropdown()),
+		);
+		void this.refreshEmbedderDropdown();
+
+		new Setting(container)
+			.setName("Top-k passages")
+			.setDesc("How many excerpts to retrieve per query.")
+			.addSlider((s) =>
+				s
+					.setLimits(1, 15, 1)
+					.setValue(this.plugin.settings.ragTopK)
+					.setDynamicTooltip()
+					.onChange(async (v) => {
+						this.plugin.settings.ragTopK = v;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(container)
+			.setName("Chunk size (chars)")
+			.addText((t) =>
+				t.setValue(String(this.plugin.settings.ragChunkSize)).onChange(async (v) => {
+					const n = parseInt(v, 10);
+					if (!Number.isFinite(n) || n < 100) return;
+					this.plugin.settings.ragChunkSize = n;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(container)
+			.setName("Chunk overlap (chars)")
+			.addText((t) =>
+				t.setValue(String(this.plugin.settings.ragChunkOverlap)).onChange(async (v) => {
+					const n = parseInt(v, 10);
+					if (!Number.isFinite(n) || n < 0) return;
+					this.plugin.settings.ragChunkOverlap = n;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(container)
+			.setName("Auto-index on load")
+			.setDesc("Walk the vault at startup and embed any changed notes.")
+			.addToggle((t) =>
+				t.setValue(this.plugin.settings.ragAutoIndex).onChange(async (v) => {
+					this.plugin.settings.ragAutoIndex = v;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		const reindexSetting = new Setting(container)
+			.setName("Reindex vault")
+			.setDesc("Rebuild the entire embeddings index from scratch.");
+		reindexSetting.addButton((btn) => {
+			this.reindexBtn = btn;
+			btn
+				.setButtonText(this.plugin.indexer?.isRunning() ? "Cancel" : "Reindex")
+				.setCta()
+				.onClick(() => {
+					if (this.plugin.indexer?.isRunning()) {
+						this.plugin.indexer.cancel();
+					} else {
+						void this.plugin.indexer?.reindexAll();
+					}
+				});
+		});
+
+		const statusRow = container.createDiv({ cls: "ollama-chat-rag-status-row" });
+		this.ragStatusEl = statusRow.createDiv({ cls: "ollama-chat-rag-status" });
+		const progressBar = statusRow.createDiv({ cls: "ollama-chat-rag-progress-bar" });
+		this.ragProgressFillEl = progressBar.createDiv({ cls: "ollama-chat-rag-progress-fill" });
+
+		this.renderRagStatus();
+		this.unsubscribeProgress?.();
+		this.unsubscribeProgress = this.plugin.indexer?.onProgress(() => this.renderRagStatus()) ?? null;
+	}
+
+	private renderRagStatus(): void {
+		if (!this.ragStatusEl || !this.ragProgressFillEl) return;
+		const stats = this.plugin.vectorStore?.stats() ?? { notes: 0, chunks: 0 };
+		const progress = this.plugin.indexer?.getProgress() ?? {
+			phase: "idle" as const,
+			indexed: 0,
+			total: 0,
+		};
+		let line = `Indexed ${stats.notes.toLocaleString()} notes · ${stats.chunks.toLocaleString()} chunks`;
+		let pct = 0;
+		if (progress.phase === "scanning") {
+			line = "Scanning vault…";
+		} else if (progress.phase === "embedding" && progress.total > 0) {
+			pct = progress.indexed / progress.total;
+			const pctStr = (pct * 100).toFixed(1);
+			line = `Embedding ${progress.indexed.toLocaleString()} / ${progress.total.toLocaleString()} notes (${pctStr}%)`;
+		} else if (progress.phase === "saving") {
+			line = "Saving index…";
+			pct = 1;
+		} else if (progress.error) {
+			line = `Error: ${progress.error}`;
+		}
+		this.ragStatusEl.setText(line);
+		this.ragProgressFillEl.setCssProps({ "--ollama-chat-rag-progress": `${Math.min(1, pct) * 100}%` });
+		if (this.reindexBtn) {
+			const running = this.plugin.indexer?.isRunning() ?? false;
+			this.reindexBtn.setButtonText(running ? "Cancel" : "Reindex");
+		}
+	}
+
+	private async refreshEmbedderDropdown(preloaded?: string[]): Promise<void> {
+		if (!this.embedderDropdownEl) return;
+		let models = preloaded;
+		if (!models) {
+			try {
+				models = await this.plugin.ollama.listModels();
+			} catch {
+				return;
+			}
+		}
+		const current = this.plugin.settings.embedderModel;
+		this.embedderDropdownEl.empty();
+		if (models.length === 0) {
+			const opt = document.createElement("option");
+			opt.value = "";
+			opt.text = "(no models installed)";
+			this.embedderDropdownEl.appendChild(opt);
+			return;
+		}
+		for (const m of models) {
+			const opt = document.createElement("option");
+			opt.value = m;
+			opt.text = m;
+			this.embedderDropdownEl.appendChild(opt);
+		}
+		if (current && models.includes(current)) {
+			this.embedderDropdownEl.value = current;
+		} else if (current) {
+			// Keep the user's chosen value even if not in the current list.
+			const opt = document.createElement("option");
+			opt.value = current;
+			opt.text = current;
+			this.embedderDropdownEl.appendChild(opt);
+			this.embedderDropdownEl.value = current;
+		} else {
+			this.embedderDropdownEl.value = "";
+		}
 	}
 
 	private renderConversations(container: HTMLElement): void {

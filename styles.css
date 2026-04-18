@@ -935,3 +935,33 @@
 	height: 14px;
 	fill: #ff6b81;
 }
+
+/* ---------- RAG status + progress bar ---------- */
+
+.ollama-chat-settings .ollama-chat-rag-status-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 4px 0 16px;
+}
+
+.ollama-chat-settings .ollama-chat-rag-status {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	font-family: var(--font-monospace);
+}
+
+.ollama-chat-settings .ollama-chat-rag-progress-bar {
+	width: 100%;
+	height: 4px;
+	background-color: var(--background-modifier-border);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.ollama-chat-settings .ollama-chat-rag-progress-fill {
+	height: 100%;
+	width: var(--ollama-chat-rag-progress, 0%);
+	background-color: var(--interactive-accent);
+	transition: width 150ms ease;
+}

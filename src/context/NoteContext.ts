@@ -1,11 +1,16 @@
 import { App, MarkdownView, TFile } from "obsidian";
+import { OllamaClient } from "../ollama/OllamaClient";
+import { VectorStore } from "../rag/VectorStore";
 import { ContextMode, OllamaChatSettings } from "../settings/Settings";
+
+export type RetrievalStatus = "ok" | "empty-index" | "no-model" | "no-query" | "embed-failed";
 
 export interface BuiltContext {
 	text: string;
 	sourceNote: TFile | null;
 	truncated: boolean;
 	contributingNotes: TFile[];
+	retrievalStatus?: RetrievalStatus;
 }
 
 export interface PerNoteFrontmatterOverride {
@@ -13,12 +18,23 @@ export interface PerNoteFrontmatterOverride {
 	model?: string;
 }
 
+export interface RetrievalDeps {
+	query?: string;
+	vectorStore?: VectorStore;
+	ollama?: OllamaClient;
+}
+
 export async function buildContext(
 	app: App,
 	mode: ContextMode,
 	settings: OllamaChatSettings,
+	retrieval?: RetrievalDeps,
 ): Promise<BuiltContext> {
 	const active = app.workspace.getActiveFile();
+
+	if (mode === "retrieval") {
+		return buildRetrievalContext(app, settings, active, retrieval);
+	}
 
 	if (mode === "none" || !active) {
 		return { text: "", sourceNote: active, truncated: false, contributingNotes: [] };
@@ -113,6 +129,65 @@ function resolveLinkedNotes(app: App, file: TFile): TFile[] {
 		out.push(target);
 	}
 	return out;
+}
+
+async function buildRetrievalContext(
+	app: App,
+	settings: OllamaChatSettings,
+	active: TFile | null,
+	deps: RetrievalDeps | undefined,
+): Promise<BuiltContext> {
+	const base: BuiltContext = {
+		text: "",
+		sourceNote: active,
+		truncated: false,
+		contributingNotes: [],
+	};
+	if (!settings.embedderModel) return { ...base, retrievalStatus: "no-model" };
+	const query = deps?.query?.trim();
+	if (!query) return { ...base, retrievalStatus: "no-query" };
+	if (!deps?.vectorStore || !deps.ollama) {
+		return { ...base, retrievalStatus: "empty-index" };
+	}
+	if (deps.vectorStore.stats().chunks === 0) {
+		return { ...base, retrievalStatus: "empty-index" };
+	}
+	let queryVec: number[];
+	try {
+		const result = await deps.ollama.embed(settings.embedderModel, query);
+		queryVec = result[0];
+	} catch (err) {
+		console.warn("[ollama-notes-chat] query embed failed", err);
+		return { ...base, retrievalStatus: "embed-failed" };
+	}
+	const hits = deps.vectorStore.topK(queryVec, settings.ragTopK);
+	if (hits.length === 0) {
+		return { ...base, retrievalStatus: "empty-index" };
+	}
+	const blocks: string[] = [];
+	const contributors: TFile[] = [];
+	const seenPaths = new Set<string>();
+	for (const hit of hits) {
+		const citation = formatCitation(hit.notePath, hit.chunk.heading);
+		blocks.push(`From ${citation}:\n${hit.chunk.text.trim()}\n`);
+		if (!seenPaths.has(hit.notePath)) {
+			seenPaths.add(hit.notePath);
+			const f = app.vault.getAbstractFileByPath(hit.notePath);
+			if (f instanceof TFile) contributors.push(f);
+		}
+	}
+	const sourceForContext = contributors[0] ?? active;
+	if (!sourceForContext) return { ...base, retrievalStatus: "empty-index" };
+	const finalized = finalize(blocks, contributors, sourceForContext, settings.truncationLimit);
+	return { ...finalized, retrievalStatus: "ok" };
+}
+
+function formatCitation(notePath: string, heading?: string): string {
+	const basename = notePath.replace(/\.md$/, "").split("/").pop() ?? notePath;
+	if (heading && heading.length > 0) {
+		return `[[${basename}#${heading}]]`;
+	}
+	return `[[${basename}]]`;
 }
 
 function finalize(

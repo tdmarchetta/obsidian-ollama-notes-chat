@@ -4,6 +4,7 @@ main.js.map
 .DS_Store
 *.log
 data.json
+index.json
 
 # Claude Code local state
 .claude/

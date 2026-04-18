@@ -1,10 +1,12 @@
-import { Editor, MarkdownView, Menu, Notice, Plugin, WorkspaceLeaf } from "obsidian";
+import { Editor, MarkdownView, Menu, Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { OllamaClient } from "./src/ollama/OllamaClient";
 import { ChatView, VIEW_TYPE_CHAT } from "./src/view/ChatView";
 import { OllamaChatSettings, mergeSettings } from "./src/settings/Settings";
 import { OllamaChatSettingTab } from "./src/settings/SettingsTab";
 import { Conversation, ConversationSnapshot, deriveAutoTitle, newId } from "./src/chat/Conversation";
 import { ConversationStore } from "./src/chat/ConversationStore";
+import { VectorStore } from "./src/rag/VectorStore";
+import { Indexer } from "./src/rag/Indexer";
 
 const CURRENT_SCHEMA_VERSION = 2;
 
@@ -23,10 +25,41 @@ export default class OllamaChatPlugin extends Plugin {
 	settings!: OllamaChatSettings;
 	ollama!: OllamaClient;
 	store!: ConversationStore;
+	vectorStore!: VectorStore;
+	indexer!: Indexer;
+
+	private lastEmbedderModel = "";
 
 	async onload(): Promise<void> {
 		await this.loadPersisted();
 		this.ollama = new OllamaClient(this.settings.baseUrl);
+
+		const indexPath = `${this.manifest.dir ?? `.obsidian/plugins/${this.manifest.id}`}/index.json`;
+		this.vectorStore = new VectorStore(this.app.vault.adapter, indexPath);
+		this.indexer = new Indexer(this.app, this.ollama, this.settings, this.vectorStore);
+		this.lastEmbedderModel = this.settings.embedderModel;
+
+		this.app.workspace.onLayoutReady(() => void this.bootstrapRag());
+
+		this.registerEvent(
+			this.app.vault.on("modify", (file: TAbstractFile) => {
+				if (file instanceof TFile) this.indexer.scheduleFileUpdate(file);
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on("delete", (file: TAbstractFile) => {
+				if (file instanceof TFile && file.extension === "md") {
+					this.indexer.removeFile(file.path);
+				}
+			}),
+		);
+		this.registerEvent(
+			this.app.vault.on("rename", (file: TAbstractFile, oldPath: string) => {
+				if (file instanceof TFile && file.extension === "md") {
+					this.indexer.renameFile(oldPath, file.path);
+				}
+			}),
+		);
 
 		this.registerView(VIEW_TYPE_CHAT, (leaf) => new ChatView(leaf, this));
 
@@ -136,7 +169,32 @@ export default class OllamaChatPlugin extends Plugin {
 	async saveSettings(): Promise<void> {
 		await this.savePersisted();
 		this.ollama?.setBaseUrl(this.settings.baseUrl);
+		this.indexer?.updateSettings(this.settings);
+		if (
+			this.indexer &&
+			this.settings.embedderModel &&
+			this.settings.embedderModel !== this.lastEmbedderModel
+		) {
+			this.lastEmbedderModel = this.settings.embedderModel;
+			void this.indexer.reindexAll();
+		}
 		this.notifyViews();
+	}
+
+	onunload(): void {
+		this.indexer?.cancel();
+		this.indexer?.cancelDebounced();
+	}
+
+	private async bootstrapRag(): Promise<void> {
+		try {
+			await this.vectorStore.load();
+		} catch (err) {
+			console.warn("[ollama-notes-chat] vector store load error", err);
+		}
+		if (this.settings.ragAutoIndex && this.settings.embedderModel) {
+			void this.indexer.start();
+		}
 	}
 
 	async saveActiveConversation(conv: Conversation): Promise<void> {
