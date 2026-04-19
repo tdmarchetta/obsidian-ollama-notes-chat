@@ -220,6 +220,12 @@
 	max-width: 100%;
 }
 
+.ollama-chat-view .ollama-chat-msg-body {
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: text;
+}
+
 .ollama-chat-view .ollama-chat-msg-label {
 	font-size: var(--font-ui-smaller);
 	font-weight: var(--font-semibold, 600);
