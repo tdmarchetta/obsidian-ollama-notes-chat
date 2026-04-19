@@ -1,7 +1,15 @@
 import { ContextMode } from "../settings/Settings";
 import type { ChatStats } from "../ollama/OllamaClient";
 
-export type Role = "user" | "assistant" | "system";
+export type Role = "user" | "assistant" | "system" | "tool";
+
+export interface ToolCall {
+	id: string;
+	name: string;
+	arguments: Record<string, unknown>;
+	result?: string;
+	error?: string;
+}
 
 export interface Message {
 	id: string;
@@ -13,6 +21,9 @@ export interface Message {
 	contextMode?: ContextMode;
 	stopped?: boolean;
 	stats?: ChatStats;
+	toolCalls?: ToolCall[];
+	toolCallId?: string;
+	toolName?: string;
 }
 
 export interface ConversationSnapshot {
@@ -58,6 +69,15 @@ export class Conversation {
 		return this.push({ role: "assistant", content: initialContent, ...meta });
 	}
 
+	addTool(toolCallId: string, toolName: string, content: string): Message {
+		return this.push({
+			role: "tool",
+			content,
+			toolCallId,
+			toolName,
+		});
+	}
+
 	appendToLast(delta: string): void {
 		if (this.messages.length === 0) return;
 		const last = this.messages[this.messages.length - 1];
@@ -95,7 +115,10 @@ export class Conversation {
 
 	get nonSystemCount(): number {
 		let n = 0;
-		for (const m of this.messages) if (m.role !== "system") n++;
+		for (const m of this.messages) {
+			if (m.role === "system" || m.role === "tool") continue;
+			n++;
+		}
 		return n;
 	}
 

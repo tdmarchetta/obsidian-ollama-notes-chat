@@ -8,7 +8,7 @@ import {
 	setTooltip,
 } from "obsidian";
 import type OllamaChatPlugin from "../../main";
-import { Conversation, Message } from "../chat/Conversation";
+import { Conversation, Message, ToolCall } from "../chat/Conversation";
 import { buildContext, getPerNoteOverride } from "../context/NoteContext";
 import { ChatMessage } from "../ollama/OllamaClient";
 import { ContextMode, contextLimitForModel } from "../settings/Settings";
@@ -16,6 +16,8 @@ import { saveConversationAsNote } from "../chat/SaveAsNote";
 import { expandTemplate, matchingCompletions, parseSlash } from "../chat/SlashCommands";
 import { StatsModal } from "./StatsModal";
 import { HistoryDrawer } from "./HistoryDrawer";
+import { buildVaultToolRegistry } from "../tools/VaultTools";
+import { runToolLoop } from "../tools/ToolLoop";
 
 export const VIEW_TYPE_CHAT = "ollama-notes-chat-view";
 
@@ -274,6 +276,8 @@ export class ChatView extends ItemView {
 	}
 
 	private renderMessage(m: Message): HTMLElement {
+		if (m.role === "tool") return this.renderToolMessage(m);
+
 		const wrap = this.listEl.createDiv({
 			cls: `ollama-chat-msg ollama-chat-msg-${m.role}`,
 		});
@@ -286,6 +290,9 @@ export class ChatView extends ItemView {
 		this.renderMarkdownInto(body, m.content);
 
 		if (m.role === "assistant") {
+			if (m.toolCalls && m.toolCalls.length > 0) {
+				this.renderToolCallsSummary(wrap, m.toolCalls);
+			}
 			const actions = wrap.createDiv({ cls: "ollama-chat-msg-actions" });
 			this.iconButton(actions, "copy", "Copy response", () => void this.copyMessage(m));
 			this.iconButton(actions, "file-plus", "Insert into note", () => this.insertIntoNote(m));
@@ -293,6 +300,72 @@ export class ChatView extends ItemView {
 			this.iconButton(actions, "bar-chart-3", "Response stats", () => this.showStats(m));
 		}
 		return wrap;
+	}
+
+	private renderToolCallsSummary(wrap: HTMLElement, calls: ToolCall[]): HTMLElement {
+		const row = wrap.createDiv({ cls: "ollama-chat-tool-calls" });
+		for (const call of calls) {
+			const chip = row.createDiv({ cls: "ollama-chat-tool-chip" });
+			setIcon(chip.createSpan({ cls: "ollama-chat-tool-chip-icon" }), "wrench");
+			chip.createSpan({ cls: "ollama-chat-tool-chip-name", text: call.name });
+			const argsSummary = this.summarizeToolArgs(call.arguments);
+			if (argsSummary) {
+				chip.createSpan({ cls: "ollama-chat-tool-chip-args", text: argsSummary });
+			}
+		}
+		return row;
+	}
+
+	private summarizeToolArgs(args: Record<string, unknown>): string {
+		const keys = Object.keys(args);
+		if (keys.length === 0) return "";
+		const parts: string[] = [];
+		for (const k of keys) {
+			const v = args[k];
+			const s = typeof v === "string" ? v : JSON.stringify(v);
+			const clipped = s.length > 40 ? s.slice(0, 40) + "…" : s;
+			parts.push(`${k}: ${clipped}`);
+		}
+		return `(${parts.join(", ")})`;
+	}
+
+	private renderToolMessage(m: Message): HTMLElement {
+		const wrap = this.listEl.createDiv({
+			cls: "ollama-chat-msg ollama-chat-msg-tool ollama-chat-tool-card",
+		});
+		const header = wrap.createDiv({ cls: "ollama-chat-tool-card-header" });
+		const caret = header.createSpan({ cls: "ollama-chat-tool-card-caret" });
+		setIcon(caret, "chevron-right");
+		header.createSpan({
+			cls: "ollama-chat-tool-card-title",
+			text: `Tool result · ${m.toolName ?? "unknown"}`,
+		});
+		const summary = this.oneLineSummary(m.content);
+		header.createSpan({ cls: "ollama-chat-tool-card-summary", text: summary });
+
+		const pre = wrap.createEl("pre", { cls: "ollama-chat-tool-card-body" });
+		pre.setText(m.content);
+		pre.hide();
+
+		header.addEventListener("click", () => {
+			const open = pre.isShown();
+			if (open) {
+				pre.hide();
+				setIcon(caret, "chevron-right");
+			} else {
+				pre.show();
+				setIcon(caret, "chevron-down");
+			}
+		});
+		this.markdownContainers.set(m, wrap);
+		return wrap;
+	}
+
+	private oneLineSummary(text: string): string {
+		const trimmed = text.trim().replace(/\s+/g, " ");
+		if (trimmed.length === 0) return "(empty)";
+		if (trimmed.length > 80) return trimmed.slice(0, 80) + "…";
+		return trimmed;
 	}
 
 	private showStats(m: Message): void {
@@ -511,6 +584,8 @@ export class ChatView extends ItemView {
 		const override = getPerNoteOverride(this.app, ctx.sourceNote);
 		const model = override.model ?? settings.model;
 		const systemPrompt = override.systemPrompt ?? settings.systemPrompt;
+		const toolsActive =
+			settings.toolsEnabled && override.toolsDisabled !== true;
 
 		// Add user message.
 		const userMsg = this.conv.addUser(userVisibleText, {
@@ -538,7 +613,7 @@ export class ChatView extends ItemView {
 		}
 		const history: ChatMessage[] = this.conv.messages
 			.filter((m) => m.role !== "system" && m !== userMsg)
-			.map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+			.map(messageToChatMessage);
 		const payload: ChatMessage[] = [
 			...systemMessages,
 			...history,
@@ -546,7 +621,7 @@ export class ChatView extends ItemView {
 		];
 
 		// Assistant placeholder.
-		const assistant = this.conv.addAssistant("", { model });
+		let assistant = this.conv.addAssistant("", { model });
 		this.renderMessage(assistant);
 		this.scrollToBottom();
 
@@ -555,18 +630,74 @@ export class ChatView extends ItemView {
 		this.setSendButtonState("stop");
 		this.abortController = new AbortController();
 		try {
-			for await (const evt of this.plugin.ollama.chatStream({
-				messages: payload,
-				model,
-				temperature: settings.temperature,
-				maxTokens: settings.maxTokens,
-				signal: this.abortController.signal,
-			})) {
-				if (evt.type === "delta") {
-					this.conv.appendToLast(evt.text);
-					this.scheduleMarkdownRender(assistant);
-				} else if (evt.type === "stats") {
-					assistant.stats = evt.stats;
+			if (toolsActive) {
+				const registry = buildVaultToolRegistry();
+				const loop = runToolLoop({
+					ollama: this.plugin.ollama,
+					registry,
+					baseMessages: payload,
+					model,
+					temperature: settings.temperature,
+					maxTokens: settings.maxTokens,
+					maxIterations: settings.toolsMaxIterations,
+					ctx: { app: this.app },
+					signal: this.abortController.signal,
+				});
+				for await (const evt of loop) {
+					if (evt.type === "iteration_start") {
+						if (evt.iteration > 0) {
+							this.flushMarkdownRender(assistant);
+							assistant = this.conv.addAssistant("", { model });
+							this.renderMessage(assistant);
+							this.scrollToBottom();
+						}
+					} else if (evt.type === "delta") {
+						this.conv.appendToLast(evt.text);
+						this.scheduleMarkdownRender(assistant);
+					} else if (evt.type === "tool_calls") {
+						const existing = assistant.toolCalls ?? [];
+						assistant.toolCalls = [
+							...existing,
+							...evt.calls.map((c) => ({
+								id: c.id,
+								name: c.name,
+								arguments: c.arguments,
+							})),
+						];
+						this.rerenderAssistantCalls(assistant);
+					} else if (evt.type === "tool_result") {
+						const calls = assistant.toolCalls ?? [];
+						const match = calls.find((c) => c.id === evt.call.id);
+						if (match) {
+							if (evt.error) match.error = evt.error;
+							else match.result = evt.result;
+						}
+						const toolMsg = this.conv.addTool(evt.call.id, evt.call.name, evt.result);
+						this.renderMessage(toolMsg);
+						this.scrollToBottom();
+					} else if (evt.type === "stats") {
+						assistant.stats = evt.stats;
+					} else if (evt.type === "cap_reached") {
+						this.conv.appendToLast(
+							`\n\n_[tool-use iteration cap reached at round ${evt.iteration + 1}]_`,
+						);
+						this.scheduleMarkdownRender(assistant);
+					}
+				}
+			} else {
+				for await (const evt of this.plugin.ollama.chatStream({
+					messages: payload,
+					model,
+					temperature: settings.temperature,
+					maxTokens: settings.maxTokens,
+					signal: this.abortController.signal,
+				})) {
+					if (evt.type === "delta") {
+						this.conv.appendToLast(evt.text);
+						this.scheduleMarkdownRender(assistant);
+					} else if (evt.type === "stats") {
+						assistant.stats = evt.stats;
+					}
 				}
 			}
 		} catch (err) {
@@ -591,6 +722,18 @@ export class ChatView extends ItemView {
 			this.historyDrawer?.scheduleRefresh();
 			this.maybeAutoSave();
 		}
+	}
+
+	private rerenderAssistantCalls(m: Message): void {
+		const body = this.markdownContainers.get(m);
+		const wrap = body?.parentElement;
+		if (!wrap) return;
+		const existing = wrap.querySelector(".ollama-chat-tool-calls");
+		if (existing) existing.remove();
+		if (!m.toolCalls || m.toolCalls.length === 0) return;
+		const actions = wrap.querySelector(".ollama-chat-msg-actions");
+		const row = this.renderToolCallsSummary(wrap, m.toolCalls);
+		if (actions) wrap.insertBefore(row, actions);
 	}
 
 	private stopGeneration(): void {
@@ -843,4 +986,21 @@ export class ChatView extends ItemView {
 			this.refreshTitle();
 		}
 	}
+}
+
+function messageToChatMessage(m: Message): ChatMessage {
+	const base: ChatMessage = {
+		role: m.role as ChatMessage["role"],
+		content: m.content,
+	};
+	if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {
+		base.tool_calls = m.toolCalls.map((c) => ({
+			function: { name: c.name, arguments: c.arguments },
+		}));
+	}
+	if (m.role === "tool") {
+		if (m.toolCallId) base.tool_call_id = m.toolCallId;
+		if (m.toolName) base.name = m.toolName;
+	}
+	return base;
 }
