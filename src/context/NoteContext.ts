@@ -18,6 +18,7 @@ export interface PerNoteFrontmatterOverride {
 	model?: string;
 	rewriteSystemPrompt?: string;
 	rewriteDisabled?: boolean;
+	toolsDisabled?: boolean;
 }
 
 export interface RetrievalDeps {
@@ -85,6 +86,7 @@ export function getPerNoteOverride(
 	if (typeof ai.model === "string") out.model = ai.model;
 	if (typeof ai.rewriteSystemPrompt === "string") out.rewriteSystemPrompt = ai.rewriteSystemPrompt;
 	if (typeof ai.rewriteDisabled === "boolean") out.rewriteDisabled = ai.rewriteDisabled;
+	if (typeof ai.toolsDisabled === "boolean") out.toolsDisabled = ai.toolsDisabled;
 	return out;
 }
 

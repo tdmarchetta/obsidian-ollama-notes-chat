@@ -36,6 +36,8 @@ export interface OllamaChatSettings {
 	ragAutoIndex: boolean;
 	rewriteSystemPrompt: string;
 	rewriteTemperature: number;
+	toolsEnabled: boolean;
+	toolsMaxIterations: number;
 }
 
 export const DEFAULT_SYSTEM_PROMPT =
@@ -88,6 +90,8 @@ export const DEFAULT_SETTINGS: OllamaChatSettings = {
 	ragAutoIndex: true,
 	rewriteSystemPrompt: DEFAULT_REWRITE_SYSTEM_PROMPT,
 	rewriteTemperature: 0.3,
+	toolsEnabled: false,
+	toolsMaxIterations: 5,
 };
 
 export function mergeSettings(

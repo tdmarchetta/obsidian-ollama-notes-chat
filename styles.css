@@ -220,6 +220,12 @@
 	max-width: 100%;
 }
 
+.ollama-chat-view .ollama-chat-msg-body {
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: text;
+}
+
 .ollama-chat-view .ollama-chat-msg-label {
 	font-size: var(--font-ui-smaller);
 	font-weight: var(--font-semibold, 600);
@@ -1036,4 +1042,111 @@
 
 .ollama-rewrite-chip-reject {
 	color: var(--text-muted);
+}
+
+/* Tool-use: chips on assistant + collapsed result cards */
+.ollama-chat-view .ollama-chat-tool-calls {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 6px;
+}
+
+.ollama-chat-view .ollama-chat-tool-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background-color: var(--background-modifier-border);
+	color: var(--text-muted);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.ollama-chat-view .ollama-chat-tool-chip-icon {
+	display: inline-flex;
+	align-items: center;
+	opacity: 0.75;
+}
+
+.ollama-chat-view .ollama-chat-tool-chip-icon .svg-icon {
+	width: 12px;
+	height: 12px;
+}
+
+.ollama-chat-view .ollama-chat-tool-chip-name {
+	color: var(--text-normal);
+}
+
+.ollama-chat-view .ollama-chat-tool-chip-args {
+	color: var(--text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 240px;
+}
+
+.ollama-chat-view .ollama-chat-msg-tool {
+	align-self: stretch;
+	margin: 4px 0;
+}
+
+.ollama-chat-view .ollama-chat-tool-card {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background-color: var(--background-secondary);
+	overflow: hidden;
+}
+
+.ollama-chat-view .ollama-chat-tool-card-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	cursor: pointer;
+	user-select: none;
+	font-size: var(--font-ui-smaller);
+}
+
+.ollama-chat-view .ollama-chat-tool-card-header:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.ollama-chat-view .ollama-chat-tool-card-caret {
+	display: inline-flex;
+	align-items: center;
+	color: var(--text-muted);
+}
+
+.ollama-chat-view .ollama-chat-tool-card-caret .svg-icon {
+	width: 14px;
+	height: 14px;
+}
+
+.ollama-chat-view .ollama-chat-tool-card-title {
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+}
+
+.ollama-chat-view .ollama-chat-tool-card-summary {
+	color: var(--text-muted);
+	flex: 1 1 auto;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ollama-chat-view .ollama-chat-tool-card-body {
+	margin: 0;
+	padding: 8px;
+	max-height: 320px;
+	overflow: auto;
+	border-top: 1px solid var(--background-modifier-border);
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+	white-space: pre-wrap;
+	word-break: break-word;
 }

@@ -1,8 +1,37 @@
 import { requestUrl } from "obsidian";
 
+export interface OllamaToolCall {
+	function: {
+		name: string;
+		arguments: Record<string, unknown>;
+	};
+}
+
 export interface ChatMessage {
-	role: "system" | "user" | "assistant";
+	role: "system" | "user" | "assistant" | "tool";
 	content: string;
+	tool_calls?: OllamaToolCall[];
+	tool_call_id?: string;
+	name?: string;
+}
+
+export interface ToolSpec {
+	type: "function";
+	function: {
+		name: string;
+		description: string;
+		parameters: {
+			type: "object";
+			properties: Record<string, unknown>;
+			required?: string[];
+		};
+	};
+}
+
+export interface ParsedToolCall {
+	id: string;
+	name: string;
+	arguments: Record<string, unknown>;
 }
 
 export interface ChatOptions {
@@ -10,6 +39,7 @@ export interface ChatOptions {
 	model: string;
 	temperature?: number;
 	maxTokens?: number;
+	tools?: ToolSpec[];
 	signal?: AbortSignal;
 }
 
@@ -39,6 +69,7 @@ export interface ChatStats {
 
 export type ChatStreamEvent =
 	| { type: "delta"; text: string }
+	| { type: "tool_calls"; calls: ParsedToolCall[] }
 	| { type: "stats"; stats: ChatStats };
 
 export class OllamaClient {
@@ -77,7 +108,7 @@ export class OllamaClient {
 	}
 
 	async chatOnce(opts: ChatOptions): Promise<string> {
-		const body = {
+		const body: Record<string, unknown> = {
 			model: opts.model,
 			messages: opts.messages,
 			stream: false,
@@ -86,6 +117,7 @@ export class OllamaClient {
 				num_predict: opts.maxTokens ?? 2048,
 			},
 		};
+		if (opts.tools && opts.tools.length > 0) body.tools = opts.tools;
 		const res = await requestUrl({
 			url: `${this.baseUrl}/api/chat`,
 			method: "POST",
@@ -96,9 +128,14 @@ export class OllamaClient {
 		if (res.status < 200 || res.status >= 300) {
 			throw new Error(`Ollama /api/chat returned ${res.status}`);
 		}
-		const parsed = res.json as { message?: { content?: string } };
+		const parsed = res.json as {
+			message?: { content?: string; tool_calls?: OllamaToolCall[] };
+		};
 		const content = parsed.message?.content;
+		const rawCalls = parsed.message?.tool_calls;
+		const hasToolCalls = Array.isArray(rawCalls) && rawCalls.length > 0;
 		if (typeof content !== "string") {
+			if (hasToolCalls) return "";
 			throw new Error("Ollama /api/chat returned no message content");
 		}
 		return content;
@@ -140,7 +177,7 @@ export class OllamaClient {
 	}
 
 	async *chatStream(opts: ChatOptions): AsyncGenerator<ChatStreamEvent, void, void> {
-		const body = {
+		const body: Record<string, unknown> = {
 			model: opts.model,
 			messages: opts.messages,
 			stream: true,
@@ -149,6 +186,7 @@ export class OllamaClient {
 				num_predict: opts.maxTokens ?? 2048,
 			},
 		};
+		if (opts.tools && opts.tools.length > 0) body.tools = opts.tools;
 
 		const startedAt = performance.now();
 		let firstTokenAt: number | null = null;
@@ -211,6 +249,14 @@ export class OllamaClient {
 						yield { type: "delta", text: delta };
 					}
 
+					const rawCalls = parsed.message?.tool_calls;
+					if (Array.isArray(rawCalls) && rawCalls.length > 0) {
+						const calls = rawCalls
+							.map(parseToolCall)
+							.filter((c): c is ParsedToolCall => c !== null);
+						if (calls.length > 0) yield { type: "tool_calls", calls };
+					}
+
 					if (parsed.done) {
 						const wallTimeMs = performance.now() - startedAt;
 						const ttftMs =
@@ -251,7 +297,11 @@ export class OllamaClient {
 interface OllamaChatChunk {
 	model?: string;
 	created_at?: string;
-	message?: { role?: string; content?: string };
+	message?: {
+		role?: string;
+		content?: string;
+		tool_calls?: OllamaToolCall[];
+	};
 	done?: boolean;
 	done_reason?: string;
 	total_duration?: number;
@@ -260,6 +310,22 @@ interface OllamaChatChunk {
 	prompt_eval_duration?: number;
 	eval_count?: number;
 	eval_duration?: number;
+}
+
+function parseToolCall(raw: OllamaToolCall): ParsedToolCall | null {
+	const fn = raw?.function;
+	if (!fn || typeof fn.name !== "string" || fn.name.length === 0) return null;
+	const args =
+		fn.arguments && typeof fn.arguments === "object" && !Array.isArray(fn.arguments)
+			? fn.arguments
+			: {};
+	return { id: newCallId(), name: fn.name, arguments: args };
+}
+
+function newCallId(): string {
+	const c = (globalThis as { crypto?: Crypto }).crypto;
+	if (c && typeof c.randomUUID === "function") return c.randomUUID();
+	return `tc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function nsToMs(ns: number | undefined): number {

@@ -30,6 +30,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 
 		this.renderConnection(containerEl);
 		this.renderGeneration(containerEl);
+		this.renderTools(containerEl);
 		this.renderRewrite(containerEl);
 		this.renderContext(containerEl);
 		this.renderRag(containerEl);
@@ -168,6 +169,36 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 						this.plugin.settings.defaultModelContextLimit = n;
 						await this.plugin.saveSettings();
 						this.plugin.notifyViews();
+					}),
+			);
+	}
+
+	private renderTools(container: HTMLElement): void {
+		new Setting(container).setName("Tools").setHeading();
+
+		new Setting(container)
+			.setName("Enable tool use")
+			.setDesc(
+				"Let the model call vault tools (read_note, list_folder) to fetch content mid-conversation. Requires a tool-capable model (qwen2.5+, llama 3.1+). Per-note override: ai.toolsDisabled: true.",
+			)
+			.addToggle((t) =>
+				t.setValue(this.plugin.settings.toolsEnabled).onChange(async (v) => {
+					this.plugin.settings.toolsEnabled = v;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(container)
+			.setName("Max tool iterations")
+			.setDesc("Hard cap on tool-call rounds per assistant turn. Prevents runaway loops.")
+			.addSlider((s) =>
+				s
+					.setLimits(2, 10, 1)
+					.setValue(this.plugin.settings.toolsMaxIterations)
+					.setDynamicTooltip()
+					.onChange(async (v) => {
+						this.plugin.settings.toolsMaxIterations = v;
+						await this.plugin.saveSettings();
 					}),
 			);
 	}
