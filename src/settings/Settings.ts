@@ -34,6 +34,8 @@ export interface OllamaChatSettings {
 	ragChunkSize: number;
 	ragChunkOverlap: number;
 	ragAutoIndex: boolean;
+	rewriteSystemPrompt: string;
+	rewriteTemperature: number;
 }
 
 export const DEFAULT_SYSTEM_PROMPT =
@@ -41,6 +43,9 @@ export const DEFAULT_SYSTEM_PROMPT =
 	"When the user provides a note as context, answer questions about it, summarize it, expand on it, or edit it as requested. " +
 	"Obsidian syntax like [[wikilinks]], #tags, and ^block-refs can appear — treat them as references to other notes and preserve them unchanged when quoting. " +
 	"Respond in markdown so it renders nicely.";
+
+export const DEFAULT_REWRITE_SYSTEM_PROMPT =
+	"You are a copy editor. Rewrite the user's text for clarity and concision while preserving meaning, tone, and any Obsidian syntax (wikilinks, tags, block refs). Return ONLY the rewritten text — no explanations, no markdown code fences.";
 
 export const DEFAULT_SETTINGS: OllamaChatSettings = {
 	baseUrl: "http://localhost:11434",
@@ -81,6 +86,8 @@ export const DEFAULT_SETTINGS: OllamaChatSettings = {
 	ragChunkSize: 800,
 	ragChunkOverlap: 100,
 	ragAutoIndex: true,
+	rewriteSystemPrompt: DEFAULT_REWRITE_SYSTEM_PROMPT,
+	rewriteTemperature: 0.3,
 };
 
 export function mergeSettings(

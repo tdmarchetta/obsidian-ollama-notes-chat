@@ -2,6 +2,7 @@ import { App, ButtonComponent, PluginSettingTab, Setting, setIcon } from "obsidi
 import type OllamaChatPlugin from "../../main";
 import {
 	ContextMode,
+	DEFAULT_REWRITE_SYSTEM_PROMPT,
 	DEFAULT_SYSTEM_PROMPT,
 	FontSize,
 	SlashCommand,
@@ -29,6 +30,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 
 		this.renderConnection(containerEl);
 		this.renderGeneration(containerEl);
+		this.renderRewrite(containerEl);
 		this.renderContext(containerEl);
 		this.renderRag(containerEl);
 		this.renderConversations(containerEl);
@@ -166,6 +168,40 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 						this.plugin.settings.defaultModelContextLimit = n;
 						await this.plugin.saveSettings();
 						this.plugin.notifyViews();
+					}),
+			);
+	}
+
+	private renderRewrite(container: HTMLElement): void {
+		new Setting(container).setName("Rewrite").setHeading();
+
+		new Setting(container)
+			.setName("Rewrite system prompt")
+			.setDesc(
+				"Used by the rewrite selection editor command. Independent from chat's system prompt.",
+			)
+			.addTextArea((ta) => {
+				ta.setPlaceholder(DEFAULT_REWRITE_SYSTEM_PROMPT)
+					.setValue(this.plugin.settings.rewriteSystemPrompt)
+					.onChange(async (v) => {
+						this.plugin.settings.rewriteSystemPrompt = v;
+						await this.plugin.saveSettings();
+					});
+				ta.inputEl.rows = 4;
+				ta.inputEl.addClass("ollama-chat-textarea-wide");
+			});
+
+		new Setting(container)
+			.setName("Rewrite temperature")
+			.setDesc("Lower = closer to the original; higher = more creative.")
+			.addSlider((s) =>
+				s
+					.setLimits(0, 1.5, 0.1)
+					.setValue(this.plugin.settings.rewriteTemperature)
+					.setDynamicTooltip()
+					.onChange(async (v) => {
+						this.plugin.settings.rewriteTemperature = v;
+						await this.plugin.saveSettings();
 					}),
 			);
 	}

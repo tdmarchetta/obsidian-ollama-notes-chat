@@ -7,6 +7,8 @@ import { Conversation, ConversationSnapshot, deriveAutoTitle, newId } from "./sr
 import { ConversationStore } from "./src/chat/ConversationStore";
 import { VectorStore } from "./src/rag/VectorStore";
 import { Indexer } from "./src/rag/Indexer";
+import { rewriteExtension } from "./src/rewrite/DiffView";
+import { registerRewriteCommand } from "./src/rewrite/RewriteCommand";
 
 const CURRENT_SCHEMA_VERSION = 2;
 
@@ -128,6 +130,9 @@ export default class OllamaChatPlugin extends Plugin {
 		);
 
 		this.addSettingTab(new OllamaChatSettingTab(this.app, this));
+
+		this.registerEditorExtension(rewriteExtension);
+		registerRewriteCommand(this);
 	}
 
 	// ---------- persistence ----------

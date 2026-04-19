@@ -965,3 +965,75 @@
 	background-color: var(--interactive-accent);
 	transition: width 150ms ease;
 }
+
+/* ---------- Rewrite-in-place diff overlay ---------- */
+/* Lives in the editor DOM, so NOT scoped under .ollama-chat-view. */
+
+.ollama-rewrite-diff {
+	display: inline;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 2px 4px;
+	background-color: var(--background-secondary);
+}
+
+.ollama-rewrite-diff-body {
+	display: inline;
+	white-space: pre-wrap;
+}
+
+.ollama-rewrite-eq {
+	color: var(--text-muted);
+}
+
+.ollama-rewrite-ins {
+	background-color: var(--color-green, rgba(46, 160, 67, 0.18));
+	color: var(--text-normal);
+	border-radius: 2px;
+	padding: 0 2px;
+}
+
+.ollama-rewrite-del {
+	background-color: var(--color-red, rgba(207, 34, 46, 0.15));
+	color: var(--text-faint);
+	text-decoration: line-through;
+	border-radius: 2px;
+	padding: 0 2px;
+}
+
+.ollama-rewrite-chips {
+	display: inline-flex;
+	gap: 4px;
+	margin-left: 8px;
+	vertical-align: middle;
+}
+
+.ollama-rewrite-chip {
+	font-size: var(--font-ui-small);
+	font-family: var(--font-ui);
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--background-modifier-border);
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	cursor: pointer;
+	line-height: 1.2;
+}
+
+.ollama-rewrite-chip:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.ollama-rewrite-chip-accept {
+	border-color: var(--interactive-accent);
+	color: var(--interactive-accent);
+}
+
+.ollama-rewrite-chip-accept:hover {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.ollama-rewrite-chip-reject {
+	color: var(--text-muted);
+}

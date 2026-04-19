@@ -9,10 +9,10 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 - **Streaming responses** — tokens arrive live over NDJSON.
 - **Context modes** — chat about the current note, the current selection, the current note plus its one-hop linked notes, retrieved passages from across the whole vault (RAG), or no context at all. Tap the subheader to cycle modes.
 - **Retrieval (RAG)** — embed your question and pull the most relevant passages from anywhere in the vault. Citations render as real `[[Note#Heading]]` links you can click. Index builds incrementally in the background; edits and renames re-embed automatically with a 2s debounce. Embedder model is configurable and independent from the chat model.
-- **Markdown rendering** — AI responses are rendered with Obsidian's own markdown renderer: code blocks, callouts, tables, and `[[wikilinks]]` all work.
+- **Markdown rendering** — AI responses are rendered with Obsidian's own Markdown renderer: code blocks, callouts, tables, and `[[wikilinks]]` all work.
 - **Slash commands** — `/summarize`, `/expand`, `/rewrite`, `/brainstorm` out of the box, fully editable in settings.
 - **Per-note overrides** — add `ai: { model: ..., systemPrompt: ... }` to a note's frontmatter to override global settings when chatting with that note.
-- **Save as note** — dump the conversation to a markdown file (`Chats/YYYY-MM-DD — <title>.md` by default).
+- **Save as note** — dump the conversation to a Markdown file (`Chats/YYYY-MM-DD — <title>.md` by default).
 - **Insert into note** — one click to paste an AI response at the cursor in the active editor.
 - **Regenerate** — redo the last response with the same prompt.
 - **Token estimate** — rough context-budget warning turns amber/red as you approach the model's limit.

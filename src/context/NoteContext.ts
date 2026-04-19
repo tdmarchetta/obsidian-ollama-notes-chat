@@ -16,6 +16,8 @@ export interface BuiltContext {
 export interface PerNoteFrontmatterOverride {
 	systemPrompt?: string;
 	model?: string;
+	rewriteSystemPrompt?: string;
+	rewriteDisabled?: boolean;
 }
 
 export interface RetrievalDeps {
@@ -81,6 +83,8 @@ export function getPerNoteOverride(
 	const out: PerNoteFrontmatterOverride = {};
 	if (typeof ai.systemPrompt === "string") out.systemPrompt = ai.systemPrompt;
 	if (typeof ai.model === "string") out.model = ai.model;
+	if (typeof ai.rewriteSystemPrompt === "string") out.rewriteSystemPrompt = ai.rewriteSystemPrompt;
+	if (typeof ai.rewriteDisabled === "boolean") out.rewriteDisabled = ai.rewriteDisabled;
 	return out;
 }
 

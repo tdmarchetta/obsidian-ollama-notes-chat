@@ -76,6 +76,34 @@ export class OllamaClient {
 		return embeddings;
 	}
 
+	async chatOnce(opts: ChatOptions): Promise<string> {
+		const body = {
+			model: opts.model,
+			messages: opts.messages,
+			stream: false,
+			options: {
+				temperature: opts.temperature ?? 0.7,
+				num_predict: opts.maxTokens ?? 2048,
+			},
+		};
+		const res = await requestUrl({
+			url: `${this.baseUrl}/api/chat`,
+			method: "POST",
+			headers: { "Content-Type": "application/json", Accept: "application/json" },
+			body: JSON.stringify(body),
+			throw: false,
+		});
+		if (res.status < 200 || res.status >= 300) {
+			throw new Error(`Ollama /api/chat returned ${res.status}`);
+		}
+		const parsed = res.json as { message?: { content?: string } };
+		const content = parsed.message?.content;
+		if (typeof content !== "string") {
+			throw new Error("Ollama /api/chat returned no message content");
+		}
+		return content;
+	}
+
 	async listModels(): Promise<string[]> {
 		const res = await requestUrl({
 			url: `${this.baseUrl}/api/tags`,
