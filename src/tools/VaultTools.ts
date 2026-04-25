@@ -27,7 +27,12 @@ function requireString(args: Record<string, unknown>, key: string): string {
 	return v;
 }
 
-function sanitizePath(raw: string): string {
+// Exported for unit testing. Validates and normalizes a vault-relative path
+// supplied by the model. Rejects null bytes, absolute paths, and any "."/"..​"
+// segment before running through Obsidian's normalizer (which collapses
+// slashes but does NOT strip upward traversal — that's why the explicit
+// segment check is the actual defense, not belt-and-braces).
+export function sanitizePath(raw: string): string {
 	const trimmed = raw.trim();
 	if (trimmed === "" || trimmed === "/") return "";
 	// Reject null bytes outright — they truncate strings in some underlying
@@ -138,6 +143,12 @@ const listFolder: Tool = {
 		const folders: string[] = [];
 		const notes: string[] = [];
 		for (const child of folder.children) {
+			// Skip dotfile children defensively — `.obsidian/`, `.git/`,
+			// `.trash/`, user-created `.private/`, etc. shouldn't be exposed
+			// to a model just because it asked for a directory listing.
+			// Whether Obsidian's adapter exposes `.obsidian/` here is
+			// adapter-dependent; this filter is cheap and forward-compatible.
+			if (child.name.startsWith(".")) continue;
 			if (child instanceof TFolder) {
 				folders.push(child.path);
 			} else if (child instanceof TFile && child.extension === "md") {
