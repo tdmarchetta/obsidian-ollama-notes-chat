@@ -115,7 +115,15 @@ async function runRewrite(
 			cm.dispatch({ effects: clearPendingEffect.of(null) });
 			return;
 		}
-		if (rewrite === selection.trim()) {
+		// Compare on LF-normalized forms so a rewrite that's content-identical
+		// but uses different line endings (e.g. LLM returns CRLF when the
+		// editor selection is LF) still hits the "no changes" gate. Without
+		// this, the diff itself would be all whitespace-only changes (Myers
+		// also normalizes — see V1 — so the visible diff is empty, but Accept
+		// would still fire and produce a no-op trip through the doc).
+		const normRewrite = rewrite.replace(/\r\n/g, "\n");
+		const normSelection = selection.trim().replace(/\r\n/g, "\n");
+		if (normRewrite === normSelection) {
 			new Notice("No changes proposed.");
 			cm.dispatch({ effects: clearPendingEffect.of(null) });
 			return;
@@ -152,12 +160,12 @@ function getCm(editor: Editor): EditorView | null {
 	return maybe ?? null;
 }
 
-function stripFences(s: string): string {
-	let out = s.trim();
-	const fenceStart = /^```[a-zA-Z0-9_-]*\n/;
-	const fenceEnd = /\n```$/;
-	if (fenceStart.test(out) && fenceEnd.test(out)) {
-		out = out.replace(fenceStart, "").replace(fenceEnd, "");
-	}
-	return out;
+// Exported for unit testing. Strips a matched outer fence (backtick or
+// tilde) plus optional language tag from a one-shot LLM response. The
+// backreference \1 enforces that opening and closing fence characters
+// match — a stray ``` …\n~~~ won't be silently stripped.
+export function stripFences(s: string): string {
+	const out = s.trim();
+	const m = /^(```|~~~)[a-zA-Z0-9_-]*\n([\s\S]*?)\n\1$/.exec(out);
+	return m ? m[2] : out;
 }
