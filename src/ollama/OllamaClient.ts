@@ -333,7 +333,46 @@ interface OllamaChatChunk {
 	eval_duration?: number;
 }
 
-function parseToolCall(raw: OllamaToolCall): ParsedToolCall | null {
+// Maximum recursion depth `sanitizeArgs` will descend into a tool-call
+// argument tree. Real tool args are flat or 1-2 levels deep; 8 is generous
+// for any legitimate future tool and keeps a hostile model from forcing
+// stack-blowing recursion via an arbitrarily nested payload. Anything past
+// the cap is replaced with null so the caller still gets a valid object.
+const MAX_TOOL_ARG_DEPTH = 8;
+
+/**
+ * Recursively rebuild a tool-call argument tree on null-prototype objects,
+ * dropping `__proto__` / `constructor` / `prototype` at every level.
+ *
+ * The original 0.5.2 defense (ADR-007 H3) covered only the top-level keys,
+ * which is sufficient today because the two shipped tools (`read_note`,
+ * `list_folder`) read just `args.path` as a string. The next tool to land
+ * — `search_vault` filters, `grep_vault` regex flags, anything that does
+ * `Object.assign(target, args.filter)` — would expose nested pollution.
+ * Extending the guard now keeps ADR-007 from needing a re-open.
+ *
+ * Exported for unit testing.
+ */
+export function sanitizeArgs(value: unknown, depth = 0): unknown {
+	if (depth > MAX_TOOL_ARG_DEPTH) return null;
+	if (Array.isArray(value)) {
+		return value.map((v) => sanitizeArgs(v, depth + 1));
+	}
+	if (value && typeof value === "object") {
+		const out: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+		const src = value as Record<string, unknown>;
+		for (const k of Object.keys(src)) {
+			if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+			if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+			out[k] = sanitizeArgs(src[k], depth + 1);
+		}
+		return out;
+	}
+	return value;
+}
+
+// Exported for unit testing.
+export function parseToolCall(raw: OllamaToolCall): ParsedToolCall | null {
 	const fn = raw?.function;
 	if (!fn || typeof fn.name !== "string" || fn.name.length === 0) return null;
 	// Cap the tool name at a sane length so a model echoing megabytes of
@@ -343,15 +382,7 @@ function parseToolCall(raw: OllamaToolCall): ParsedToolCall | null {
 		fn.arguments && typeof fn.arguments === "object" && !Array.isArray(fn.arguments)
 			? fn.arguments
 			: {};
-	// Copy only own-enumerable keys into a null-prototype object so any
-	// "__proto__" / "constructor" keys the model produces land on a dead
-	// target instead of shadowing Object.prototype for downstream code.
-	const args: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
-	for (const k of Object.keys(rawArgs)) {
-		if (!Object.prototype.hasOwnProperty.call(rawArgs, k)) continue;
-		if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
-		args[k] = rawArgs[k];
-	}
+	const args = sanitizeArgs(rawArgs) as Record<string, unknown>;
 	return { id: newCallId(), name: fn.name, arguments: args };
 }
 
