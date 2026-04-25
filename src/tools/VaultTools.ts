@@ -17,7 +17,7 @@ export class InvalidArgumentsError extends Error {
 	}
 }
 
-const READ_CAP_BYTES = 32 * 1024;
+const READ_CAP_CHARS = 32 * 1024;
 
 function requireString(args: Record<string, unknown>, key: string): string {
 	const v = args[key];
@@ -92,10 +92,10 @@ const readNote: Tool = {
 			throw new InvalidArgumentsError(`not a markdown file: "${path}"`);
 		}
 		const raw = await ctx.app.vault.cachedRead(file);
-		const truncated = raw.length > READ_CAP_BYTES;
+		const truncated = raw.length > READ_CAP_CHARS;
 		const content = truncated
-			? raw.slice(0, READ_CAP_BYTES) +
-			  `\n\n…[truncated, ${raw.length - READ_CAP_BYTES} more chars]`
+			? raw.slice(0, READ_CAP_CHARS) +
+			  `\n\n…[truncated, ${raw.length - READ_CAP_CHARS} more chars]`
 			: raw;
 		return JSON.stringify({
 			path: file.path,
