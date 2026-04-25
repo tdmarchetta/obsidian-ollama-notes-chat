@@ -106,5 +106,12 @@ export function mergeAdjacent(tokens: DiffToken[]): DiffToken[] {
 }
 
 export function diff(before: string, after: string): DiffToken[] {
-	return mergeAdjacent(diffTokens(tokenize(before), tokenize(after)));
+	// Normalize line endings before tokenizing — the regex /\s+|\S+/g treats
+	// "\r\n" and "\n" as distinct whitespace tokens, so an LF selection vs. a
+	// CRLF rewrite (or vice versa) would produce a diff full of phantom
+	// insert/delete pairs on every line break. Fold both sides to LF so the
+	// tokenizer compares apples to apples.
+	const a = before.replace(/\r\n/g, "\n");
+	const b = after.replace(/\r\n/g, "\n");
+	return mergeAdjacent(diffTokens(tokenize(a), tokenize(b)));
 }
