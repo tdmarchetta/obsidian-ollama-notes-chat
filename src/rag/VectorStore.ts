@@ -106,11 +106,33 @@ export class VectorStore {
 		};
 		const serialized = JSON.stringify(data);
 		const tmp = `${this.path}.tmp`;
+		const backup = `${this.path}.bak`;
+		// Crash-recoverable atomic write: write tmp, move existing aside to
+		// .bak, rename tmp into place, then drop .bak. If the rename-into-
+		// place fails the catch puts .bak back so we never have a window
+		// where neither the live file nor the backup exists. The previous
+		// remove-then-rename sequence had exactly that gap and would lose
+		// the entire index on a mid-write crash, forcing a full re-embed
+		// of the vault on next launch.
 		await this.adapter.write(tmp, serialized);
-		if (await this.adapter.exists(this.path)) {
-			await this.adapter.remove(this.path);
+		const hadOld = await this.adapter.exists(this.path);
+		if (hadOld) await this.adapter.rename(this.path, backup);
+		try {
+			await this.adapter.rename(tmp, this.path);
+		} catch (err) {
+			if (hadOld) {
+				try {
+					await this.adapter.rename(backup, this.path);
+				} catch {
+					// Recovery itself failed — the original write error is
+					// the more useful one to surface, so swallow this.
+				}
+			}
+			throw err;
 		}
-		await this.adapter.rename(tmp, this.path);
+		if (hadOld && (await this.adapter.exists(backup))) {
+			await this.adapter.remove(backup);
+		}
 	}
 
 	upsert(notePath: string, chunks: IndexedChunk[], mtime: number): void {
