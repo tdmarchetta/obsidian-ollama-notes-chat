@@ -606,7 +606,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		setIcon(btn.createSpan({ cls: "ollama-chat-donate-icon" }), "heart");
 		btn.createSpan({ text: "Buy me a coffee" });
 		btn.addEventListener("click", () => {
-			window.open("https://buymeacoffee.com/tdmarchetta", "_blank");
+			window.open("https://buymeacoffee.com/tdmarchetta", "_blank", "noopener,noreferrer");
 		});
 	}
 

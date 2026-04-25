@@ -69,12 +69,25 @@ export class VectorStore {
 			const parsed = JSON.parse(raw) as Partial<VectorStoreFile>;
 			if (!parsed || typeof parsed !== "object") return;
 			if (parsed.schemaVersion !== CURRENT_INDEX_SCHEMA) return;
-			this.embedderModel = parsed.embedderModel ?? "";
-			this.embeddingDim = parsed.embeddingDim ?? 0;
+			this.embedderModel = typeof parsed.embedderModel === "string" ? parsed.embedderModel : "";
+			this.embeddingDim = typeof parsed.embeddingDim === "number" ? parsed.embeddingDim : 0;
 			const notes = parsed.notes ?? {};
+			// Validate every entry before adoption — a tampered or truncated
+			// index.json should be discarded rather than feeding bad floats into
+			// cosine math that would silently return garbage hits.
 			for (const [path, note] of Object.entries(notes)) {
-				if (!note || !Array.isArray(note.chunks)) continue;
-				this.notes.set(path, { mtime: note.mtime ?? 0, chunks: note.chunks });
+				if (typeof path !== "string" || path.length === 0) continue;
+				// Skip dangerous key names defensively even though Map.set is safe.
+				if (path === "__proto__" || path === "constructor" || path === "prototype") continue;
+				if (!note || typeof note !== "object" || !Array.isArray(note.chunks)) continue;
+				const mtime = typeof note.mtime === "number" && Number.isFinite(note.mtime) ? note.mtime : 0;
+				const validChunks: IndexedChunk[] = [];
+				for (const chunk of note.chunks) {
+					if (!isValidIndexedChunk(chunk)) continue;
+					validChunks.push(chunk);
+				}
+				if (validChunks.length === 0) continue;
+				this.notes.set(path, { mtime, chunks: validChunks });
 			}
 		} catch (err) {
 			console.warn("[ollama-notes-chat] vector index load failed, starting empty", err);
@@ -153,6 +166,18 @@ export class VectorStore {
 		hits.sort((a, b) => b.score - a.score);
 		return hits.slice(0, k);
 	}
+}
+
+function isValidIndexedChunk(x: unknown): x is IndexedChunk {
+	if (!x || typeof x !== "object") return false;
+	const c = x as Partial<IndexedChunk>;
+	if (typeof c.text !== "string") return false;
+	if (c.heading !== undefined && typeof c.heading !== "string") return false;
+	if (!Array.isArray(c.embedding) || c.embedding.length === 0) return false;
+	for (const n of c.embedding) {
+		if (typeof n !== "number" || !Number.isFinite(n)) return false;
+	}
+	return true;
 }
 
 function dot(a: number[], b: number[]): number {

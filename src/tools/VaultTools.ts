@@ -1,4 +1,4 @@
-import { App, TFile, TFolder } from "obsidian";
+import { App, TFile, TFolder, normalizePath } from "obsidian";
 import type { ToolSpec } from "../ollama/OllamaClient";
 
 export interface ToolContext {
@@ -30,13 +30,28 @@ function requireString(args: Record<string, unknown>, key: string): string {
 function sanitizePath(raw: string): string {
 	const trimmed = raw.trim();
 	if (trimmed === "" || trimmed === "/") return "";
-	if (trimmed.startsWith("/")) {
+	// Reject null bytes outright — they truncate strings in some underlying
+	// OS calls and are never legitimate in a vault path.
+	if (trimmed.includes("\0")) {
+		throw new InvalidArgumentsError(`path contains a null byte: "${raw}"`);
+	}
+	// Fold Windows-style separators to posix before segment checks so a
+	// model returning "..\\notes" can't bypass the ".." guard.
+	const unified = trimmed.replace(/\\/g, "/");
+	if (unified.startsWith("/")) {
 		throw new InvalidArgumentsError(`path must be vault-relative, not absolute: "${raw}"`);
 	}
-	if (trimmed.split("/").includes("..")) {
-		throw new InvalidArgumentsError(`path segment ".." is not allowed: "${raw}"`);
+	const segments = unified.split("/");
+	if (segments.includes("..") || segments.includes(".")) {
+		throw new InvalidArgumentsError(`path segment "." / ".." is not allowed: "${raw}"`);
 	}
-	return trimmed.replace(/\/+$/, "");
+	// Final belt-and-braces: run through Obsidian's normalizer and make sure
+	// the shape is unchanged (no upward traversal collapsed in).
+	const normalized = normalizePath(unified.replace(/\/+$/, ""));
+	if (normalized === "/" || normalized.startsWith("..")) {
+		throw new InvalidArgumentsError(`invalid path after normalization: "${raw}"`);
+	}
+	return normalized;
 }
 
 const readNote: Tool = {

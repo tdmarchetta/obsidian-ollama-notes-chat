@@ -87,7 +87,16 @@ export class OllamaClient {
 		return this.baseUrl;
 	}
 
+	private requireBaseUrl(): void {
+		if (!this.baseUrl) {
+			throw new Error(
+				"Ollama base URL is missing or invalid — set a http(s) URL in settings.",
+			);
+		}
+	}
+
 	async embed(model: string, input: string | string[]): Promise<number[][]> {
+		this.requireBaseUrl();
 		const body = { model, input };
 		const res = await requestUrl({
 			url: `${this.baseUrl}/api/embed`,
@@ -108,6 +117,7 @@ export class OllamaClient {
 	}
 
 	async chatOnce(opts: ChatOptions): Promise<string> {
+		this.requireBaseUrl();
 		const body: Record<string, unknown> = {
 			model: opts.model,
 			messages: opts.messages,
@@ -142,6 +152,7 @@ export class OllamaClient {
 	}
 
 	async listModels(): Promise<string[]> {
+		this.requireBaseUrl();
 		const res = await requestUrl({
 			url: `${this.baseUrl}/api/tags`,
 			method: "GET",
@@ -177,6 +188,7 @@ export class OllamaClient {
 	}
 
 	async *chatStream(opts: ChatOptions): AsyncGenerator<ChatStreamEvent, void, void> {
+		this.requireBaseUrl();
 		const body: Record<string, unknown> = {
 			model: opts.model,
 			messages: opts.messages,
@@ -223,12 +235,21 @@ export class OllamaClient {
 		const reader = res.body.getReader();
 		const decoder = new TextDecoder("utf-8");
 		let buffer = "";
+		// Cap per-line NDJSON buffer so a hostile or malfunctioning server that
+		// never emits a newline cannot exhaust memory. Real Ollama chunks are
+		// well under 1 MB; 8 MB is a generous ceiling before we bail.
+		const MAX_BUFFER_BYTES = 8 * 1024 * 1024;
 
 		try {
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
 				buffer += decoder.decode(value, { stream: true });
+				if (buffer.length > MAX_BUFFER_BYTES) {
+					throw new Error(
+						`Ollama stream exceeded ${MAX_BUFFER_BYTES} bytes without a newline — aborting.`,
+					);
+				}
 
 				let nlIdx: number;
 				while ((nlIdx = buffer.indexOf("\n")) !== -1) {
@@ -315,10 +336,22 @@ interface OllamaChatChunk {
 function parseToolCall(raw: OllamaToolCall): ParsedToolCall | null {
 	const fn = raw?.function;
 	if (!fn || typeof fn.name !== "string" || fn.name.length === 0) return null;
-	const args =
+	// Cap the tool name at a sane length so a model echoing megabytes of
+	// junk into the name field can't bloat message history or UI chips.
+	if (fn.name.length > 200) return null;
+	const rawArgs: Record<string, unknown> =
 		fn.arguments && typeof fn.arguments === "object" && !Array.isArray(fn.arguments)
 			? fn.arguments
 			: {};
+	// Copy only own-enumerable keys into a null-prototype object so any
+	// "__proto__" / "constructor" keys the model produces land on a dead
+	// target instead of shadowing Object.prototype for downstream code.
+	const args: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+	for (const k of Object.keys(rawArgs)) {
+		if (!Object.prototype.hasOwnProperty.call(rawArgs, k)) continue;
+		if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+		args[k] = rawArgs[k];
+	}
 	return { id: newCallId(), name: fn.name, arguments: args };
 }
 
@@ -333,6 +366,31 @@ function nsToMs(ns: number | undefined): number {
 	return ns / 1_000_000;
 }
 
+/**
+ * Normalize and validate an Ollama base URL.
+ *
+ * The URL lands in `fetch()` / `requestUrl()` unsanitized, so we must reject
+ * anything that isn't http(s): without this, a `file://` or `javascript:`
+ * value (from data.json tampering or a typo) would be dispatched verbatim
+ * by Electron's fetch.
+ *
+ * Empty input is tolerated (the client is instantiated before settings
+ * merge finishes); the caller's fetch will fail loudly.
+ */
 function normalize(url: string): string {
-	return url.replace(/\/+$/, "");
+	const trimmed = url.trim().replace(/\/+$/, "");
+	if (!trimmed) return "";
+	try {
+		const parsed = new URL(trimmed);
+		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+			console.warn(
+				`[ollama-notes-chat] rejecting non-http(s) base URL scheme "${parsed.protocol}"`,
+			);
+			return "";
+		}
+		return trimmed;
+	} catch {
+		console.warn(`[ollama-notes-chat] rejecting malformed base URL "${url}"`);
+		return "";
+	}
 }

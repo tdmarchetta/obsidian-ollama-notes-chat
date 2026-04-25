@@ -321,12 +321,24 @@ export class ChatView extends ItemView {
 		if (keys.length === 0) return "";
 		const parts: string[] = [];
 		for (const k of keys) {
+			// Only trust own-enumerable keys — a model that emits "__proto__"
+			// inside the arguments blob shouldn't confuse our summary.
+			if (!Object.prototype.hasOwnProperty.call(args, k)) continue;
 			const v = args[k];
-			const s = typeof v === "string" ? v : JSON.stringify(v);
+			let s: string;
+			if (typeof v === "string") {
+				s = v;
+			} else {
+				try {
+					s = JSON.stringify(v) ?? String(v);
+				} catch {
+					s = "[unserializable]";
+				}
+			}
 			const clipped = s.length > 40 ? s.slice(0, 40) + "…" : s;
 			parts.push(`${k}: ${clipped}`);
 		}
-		return `(${parts.join(", ")})`;
+		return parts.length === 0 ? "" : `(${parts.join(", ")})`;
 	}
 
 	private renderToolMessage(m: Message): HTMLElement {
@@ -403,11 +415,16 @@ export class ChatView extends ItemView {
 			return;
 		}
 
-		// External http(s) link: open in default browser
+		// External http(s) link: open in default browser.
+		// Validate scheme: the LLM can emit arbitrary URLs in markdown, and
+		// Obsidian's renderer may class non-http schemes (data:, javascript:,
+		// file:) as external-link. Reject anything outside http(s).
 		if (anchor.classList.contains("external-link")) {
 			evt.preventDefault();
 			const href = anchor.getAttribute("href");
-			if (href) window.open(href, "_blank");
+			if (href && isSafeExternalHref(href)) {
+				window.open(href, "_blank", "noopener,noreferrer");
+			}
 		}
 	}
 
@@ -985,6 +1002,15 @@ export class ChatView extends ItemView {
 			this.renderAllMessages();
 			this.refreshTitle();
 		}
+	}
+}
+
+function isSafeExternalHref(href: string): boolean {
+	try {
+		const u = new URL(href, "https://localhost/");
+		return u.protocol === "http:" || u.protocol === "https:";
+	} catch {
+		return false;
 	}
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-ollama-notes-chat",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Chat with your notes in a right sidebar using a remote Ollama server.",
   "main": "main.js",
   "scripts": {
