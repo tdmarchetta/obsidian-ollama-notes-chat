@@ -28,10 +28,10 @@ function requireString(args: Record<string, unknown>, key: string): string {
 }
 
 // Exported for unit testing. Validates and normalizes a vault-relative path
-// supplied by the model. Rejects null bytes, absolute paths, and any "."/"..​"
-// segment before running through Obsidian's normalizer (which collapses
-// slashes but does NOT strip upward traversal — that's why the explicit
-// segment check is the actual defense, not belt-and-braces).
+// supplied by the model. Rejects null bytes, absolute paths, and any single-
+// or double-dot segment before running through Obsidian's normalizer (which
+// collapses slashes but does NOT strip upward traversal — that's why the
+// explicit segment check is the actual defense, not belt-and-braces).
 export function sanitizePath(raw: string): string {
 	const trimmed = raw.trim();
 	if (trimmed === "" || trimmed === "/") return "";

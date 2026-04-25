@@ -29,7 +29,11 @@ export async function saveConversationAsNote(
 	return file;
 }
 
-function sanitizeFolder(folder: string): string {
+// The next three helpers and renderMarkdown are exported so unit tests can
+// exercise the path/filename/YAML-safety logic without spinning up a real
+// vault. They remain implementation details — main.ts and ChatView only
+// reach into saveConversationAsNote().
+export function sanitizeFolder(folder: string): string {
 	const stripped = folder.replace(/^\/+|\/+$/g, "").trim();
 	if (!stripped) return "Chats";
 	// Reject any ".." segment explicitly — normalizePath does not strip
@@ -64,7 +68,7 @@ function sanitizeInterpolatedValue(value: string): string {
 	return value.replace(/[\\/:*?"<>|\x00-\x1f]/g, "-").trim() || "chat";
 }
 
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
 	// Collapse illegal glyphs and control chars, then strip leading dots so a
 	// template like "{{title}}" evaluated to "../secret" cannot produce a
 	// dotfile or traverse after concat with the folder.
@@ -99,7 +103,7 @@ function uniquePath(app: App, basePath: string): string {
 	return `${stem} (${i})${ext}`;
 }
 
-function renderMarkdown(conversation: Conversation, activeTitle?: string): string {
+export function renderMarkdown(conversation: Conversation, activeTitle?: string): string {
 	const lines: string[] = [];
 	lines.push("---");
 	lines.push(`created: ${new Date(conversation.createdAt).toISOString()}`);
@@ -107,7 +111,12 @@ function renderMarkdown(conversation: Conversation, activeTitle?: string): strin
 	if (activeTitle) {
 		// Escape `"`, `\`, and wikilink-closing `]]` so an unusual filename
 		// can't break out of the YAML string or escape the wikilink target.
+		// Collapse any vertical whitespace (CR/LF) to a single space FIRST —
+		// YAML technically tolerates a multi-line double-quoted scalar, but
+		// downstream Obsidian metadata-cache readers and third-party tools
+		// have been known to mis-render it, so keep the value on one line.
 		const safe = activeTitle
+			.replace(/[\r\n]+/g, " ")
 			.replace(/\\/g, "\\\\")
 			.replace(/"/g, '\\"')
 			.replace(/\]\]/g, "]\\]");

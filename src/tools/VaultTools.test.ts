@@ -119,6 +119,7 @@ describe("list_folder tool", () => {
 	// asked for a folder listing.
 	it("hides dotfile folders and notes (V4)", async () => {
 		const root = fakeFolder("", [
+			// eslint-disable-next-line obsidianmd/hardcoded-config-path -- the literal is the test target
 			{ kind: "folder", name: ".obsidian" },
 			{ kind: "folder", name: ".git" },
 			{ kind: "folder", name: ".private" },
