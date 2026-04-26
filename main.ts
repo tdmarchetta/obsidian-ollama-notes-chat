@@ -9,6 +9,7 @@ import { VectorStore } from "./src/rag/VectorStore";
 import { Indexer } from "./src/rag/Indexer";
 import { rewriteExtension } from "./src/rewrite/DiffView";
 import { registerRewriteCommand } from "./src/rewrite/RewriteCommand";
+import { ExportModal } from "./src/view/ExportModal";
 
 const CURRENT_SCHEMA_VERSION = 2;
 
@@ -106,6 +107,15 @@ export default class OllamaChatPlugin extends Plugin {
 				void this.savePersisted();
 				this.notifyViews();
 				new Notice("Active conversation cleared");
+			},
+		});
+
+		this.addCommand({
+			id: "export-conversations",
+			name: "Export conversations",
+			callback: () => {
+				const active = this.store.hydrateActive();
+				new ExportModal(this.app, this, active, "all").open();
 			},
 		});
 

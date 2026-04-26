@@ -47,7 +47,7 @@ export function sanitizeFolder(folder: string): string {
 	return normalized;
 }
 
-function fillFilenameTemplate(template: string, activeTitle?: string): string {
+export function fillFilenameTemplate(template: string, activeTitle?: string): string {
 	const now = new Date();
 	const pad = (n: number) => String(n).padStart(2, "0");
 	const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -82,7 +82,7 @@ export function sanitizeFilename(name: string): string {
 	return cleaned || "chat";
 }
 
-async function ensureFolder(app: App, folderPath: string): Promise<void> {
+export async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	const existing = app.vault.getAbstractFileByPath(folderPath);
 	if (existing) return;
 	try {
@@ -93,7 +93,7 @@ async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	}
 }
 
-function uniquePath(app: App, basePath: string): string {
+export function uniquePath(app: App, basePath: string): string {
 	if (!app.vault.getAbstractFileByPath(basePath)) return basePath;
 	const dot = basePath.lastIndexOf(".");
 	const stem = basePath.slice(0, dot);

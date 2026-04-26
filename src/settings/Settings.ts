@@ -38,6 +38,8 @@ export interface OllamaChatSettings {
 	rewriteTemperature: number;
 	toolsEnabled: boolean;
 	toolsMaxIterations: number;
+	exportFolder: string;
+	exportDefaultFormat: "md" | "json";
 }
 
 export const DEFAULT_SYSTEM_PROMPT =
@@ -92,6 +94,8 @@ export const DEFAULT_SETTINGS: OllamaChatSettings = {
 	rewriteTemperature: 0.3,
 	toolsEnabled: false,
 	toolsMaxIterations: 5,
+	exportFolder: "Chats",
+	exportDefaultFormat: "md",
 };
 
 export function mergeSettings(

@@ -1150,3 +1150,34 @@
 	white-space: pre-wrap;
 	word-break: break-word;
 }
+
+/* ---------- export modal ---------- */
+
+.ollama-chat-export-modal .ollama-chat-export-scope-buttons {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.ollama-chat-export-modal .ollama-chat-export-scope-btn {
+	padding: 4px 12px;
+	border-radius: 999px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	cursor: pointer;
+	box-shadow: none;
+}
+
+.ollama-chat-export-modal .ollama-chat-export-scope-btn.mod-cta {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.ollama-chat-export-modal .ollama-chat-export-date-range {
+	padding-left: 8px;
+	border-left: 2px solid var(--background-modifier-border);
+	margin-top: 4px;
+}

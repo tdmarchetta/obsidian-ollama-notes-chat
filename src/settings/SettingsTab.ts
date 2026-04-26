@@ -35,6 +35,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		this.renderContext(containerEl);
 		this.renderRag(containerEl);
 		this.renderConversations(containerEl);
+		this.renderExport(containerEl);
 		this.renderSlashCommands(containerEl);
 		this.renderAppearance(containerEl);
 		this.renderSupport(containerEl);
@@ -490,6 +491,37 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 						const n = parseInt(v, 10);
 						if (!Number.isFinite(n) || n < 0) return;
 						this.plugin.settings.autoSaveEvery = n;
+						await this.plugin.saveSettings();
+					}),
+			);
+	}
+
+	private renderExport(container: HTMLElement): void {
+		new Setting(container).setName("Export").setHeading();
+
+		new Setting(container)
+			.setName("Export folder")
+			.setDesc("Vault folder where exported files will be created.")
+			.addText((t) =>
+				t
+					.setPlaceholder("Chats")
+					.setValue(this.plugin.settings.exportFolder)
+					.onChange(async (v) => {
+						this.plugin.settings.exportFolder = v.trim() || "Chats";
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(container)
+			.setName("Default export format")
+			.setDesc("Pre-selects the format when opening the export modal.")
+			.addDropdown((d) =>
+				d
+					.addOption("md", "Markdown")
+					.addOption("json", "JSON")
+					.setValue(this.plugin.settings.exportDefaultFormat)
+					.onChange(async (v) => {
+						this.plugin.settings.exportDefaultFormat = v as "md" | "json";
 						await this.plugin.saveSettings();
 					}),
 			);

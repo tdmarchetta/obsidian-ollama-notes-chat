@@ -16,6 +16,7 @@ import { saveConversationAsNote } from "../chat/SaveAsNote";
 import { expandTemplate, matchingCompletions, parseSlash } from "../chat/SlashCommands";
 import { StatsModal } from "./StatsModal";
 import { HistoryDrawer } from "./HistoryDrawer";
+import { ExportModal } from "./ExportModal";
 import { buildVaultToolRegistry } from "../tools/VaultTools";
 import { runToolLoop } from "../tools/ToolLoop";
 
@@ -108,6 +109,9 @@ export class ChatView extends ItemView {
 		this.iconButton(actions, "plus", "New chat", () => void this.newChat());
 		this.iconButton(actions, "trash-2", "Clear active chat", () => this.clearConversation());
 		this.iconButton(actions, "download", "Save as note", () => void this.saveAsNote());
+		this.iconButton(actions, "share-2", "Export conversations", () =>
+			new ExportModal(this.app, this.plugin, this.conv).open(),
+		);
 		this.iconButton(actions, "settings", "Open plugin settings", () => this.openSettings());
 
 		this.subheaderEl = root.createDiv({ cls: "ollama-chat-subheader" });
