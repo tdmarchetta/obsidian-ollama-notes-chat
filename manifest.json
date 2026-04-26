@@ -5,7 +5,7 @@
   "minAppVersion": "1.4.0",
   "description": "Chat with your notes in a right sidebar using a remote Ollama server.",
   "author": "Taylor Marchetta",
-  "authorUrl": "https://buymeacoffee.com/tdmarchetta",
+  "authorUrl": "https://github.com/tdmarchetta",
   "fundingUrl": {
     "Buy Me a Coffee": "https://buymeacoffee.com/tdmarchetta"
   },
