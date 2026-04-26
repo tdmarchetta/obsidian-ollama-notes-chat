@@ -112,6 +112,7 @@ export class ChatView extends ItemView {
 		this.iconButton(actions, "share-2", "Export conversations", () =>
 			new ExportModal(this.app, this.plugin, this.conv).open(),
 		);
+		this.iconButton(actions, "circle-help", "Open user manual", () => this.openUserManual());
 		this.iconButton(actions, "settings", "Open plugin settings", () => this.openSettings());
 
 		this.subheaderEl = root.createDiv({ cls: "ollama-chat-subheader" });
@@ -826,6 +827,30 @@ export class ChatView extends ItemView {
 			s.open();
 			s.openTabById(this.plugin.manifest.id);
 		}
+	}
+
+	private openUserManual(): void {
+		const url =
+			"https://github.com/tdmarchetta/obsidian-ollama-notes-chat/blob/main/docs/user-guide.md";
+		// Prefer Obsidian's Web viewer (core plugin, ≥ 1.7); fall back to the
+		// system browser if it's disabled or the view type isn't registered.
+		const internal = (
+			this.app as unknown as {
+				internalPlugins?: {
+					getPluginById?: (id: string) => { enabled?: boolean } | null;
+				};
+			}
+		).internalPlugins;
+		const wvEnabled = internal?.getPluginById?.("webviewer")?.enabled === true;
+		if (wvEnabled) {
+			void this.app.workspace.getLeaf("tab").setViewState({
+				type: "webviewer",
+				active: true,
+				state: { url, navigate: true },
+			});
+			return;
+		}
+		window.open(url, "_blank", "noopener,noreferrer");
 	}
 
 	private async copyMessage(m: Message): Promise<void> {

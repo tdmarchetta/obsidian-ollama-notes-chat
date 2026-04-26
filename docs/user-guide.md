@@ -54,6 +54,7 @@ Ollama Notes Chat puts an AI chat panel in your right sidebar. It talks to an Ol
 | `trash-2` | Clear active chat | Deletes all messages from the current conversation (after confirmation) |
 | `download` | Save as note | Saves the conversation to a Markdown file in your vault |
 | `share-2` | Export conversations | Opens the export modal to export one or all conversations as Markdown or JSON |
+| `circle-help` | Open user manual | Opens this user guide in a new Obsidian tab via the Web viewer core plugin (falls back to your default browser if Web viewer is disabled) |
 | `settings` | Open plugin settings | Jumps to the plugin settings tab |
 
 ### Subheader (context mode pill)
