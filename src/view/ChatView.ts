@@ -19,6 +19,8 @@ import { HistoryDrawer } from "./HistoryDrawer";
 import { ExportModal } from "./ExportModal";
 import { buildVaultToolRegistry } from "../tools/VaultTools";
 import { runToolLoop } from "../tools/ToolLoop";
+import { SpeechPlayer } from "../tts/SpeechPlayer";
+import { markdownToPlainText } from "../tts/markdownToPlainText";
 
 export const VIEW_TYPE_CHAT = "ollama-notes-chat-view";
 
@@ -60,6 +62,10 @@ export class ChatView extends ItemView {
 	private markdownContainers = new WeakMap<Message, HTMLElement>();
 	private pendingRenderTimer: number | null = null;
 
+	private speechPlayer = new SpeechPlayer();
+	private speakerButtons = new Map<string, HTMLButtonElement>();
+	private unsubscribeSpeech: (() => void) | null = null;
+
 	constructor(leaf: WorkspaceLeaf, plugin: OllamaChatPlugin) {
 		super(leaf);
 		this.plugin = plugin;
@@ -84,6 +90,8 @@ export class ChatView extends ItemView {
 		root.empty();
 		root.addClass("ollama-chat-view");
 		this.applyFontSize();
+		this.applyTtsClass();
+		this.unsubscribeSpeech = this.speechPlayer.onChange(() => this.refreshSpeakerIcons());
 
 		const header = root.createDiv({ cls: "ollama-chat-header" });
 
@@ -171,6 +179,10 @@ export class ChatView extends ItemView {
 
 	onClose(): Promise<void> {
 		this.stopGeneration();
+		this.speechPlayer.stop();
+		this.unsubscribeSpeech?.();
+		this.unsubscribeSpeech = null;
+		this.speakerButtons.clear();
 		this.historyDrawer?.destroy();
 		this.historyDrawer = null;
 		return Promise.resolve();
@@ -178,11 +190,16 @@ export class ChatView extends ItemView {
 
 	onSettingsChanged(): void {
 		this.applyFontSize();
+		this.applyTtsClass();
 		this.refreshSubheader();
 		this.updateStatus();
 		this.updateInputPlaceholder();
 		this.maybeRehydrateActive();
 		this.historyDrawer?.scheduleRefresh();
+	}
+
+	private applyTtsClass(): void {
+		this.contentEl.toggleClass("ollama-tts-disabled", !this.plugin.settings.enableTts);
 	}
 
 	focusInput(): void {
@@ -273,11 +290,45 @@ export class ChatView extends ItemView {
 			if (child !== anchor) child.remove();
 		});
 		this.markdownContainers = new WeakMap();
+		this.speakerButtons.clear();
+		this.speechPlayer.stop();
 		for (const m of this.conv.messages) {
 			if (m.role === "system") continue;
 			this.renderMessage(m);
 		}
 		this.refreshEmptyState();
+	}
+
+	private attachSpeakerButton(parent: HTMLElement, m: Message): void {
+		if (!SpeechPlayer.isSupported()) return;
+		const btn = this.iconButton(parent, "volume-2", "Speak response", () => {
+			if (this.speechPlayer.isSpeaking(m.id)) {
+				this.speechPlayer.stop();
+			} else {
+				this.speechPlayer.speak(m.id, markdownToPlainText(m.content));
+			}
+		});
+		btn.addClass("ollama-chat-speak-btn");
+		this.speakerButtons.set(m.id, btn);
+		this.applySpeakerState(m.id, btn);
+	}
+
+	private refreshSpeakerIcons(): void {
+		for (const [id, btn] of this.speakerButtons) {
+			this.applySpeakerState(id, btn);
+		}
+	}
+
+	private applySpeakerState(id: string, btn: HTMLButtonElement): void {
+		if (this.speechPlayer.isSpeaking(id)) {
+			setIcon(btn, "volume-x");
+			setTooltip(btn, "Stop");
+			btn.addClass("is-speaking");
+		} else {
+			setIcon(btn, "volume-2");
+			setTooltip(btn, "Speak response");
+			btn.removeClass("is-speaking");
+		}
 	}
 
 	private renderMessage(m: Message): HTMLElement {
@@ -303,6 +354,7 @@ export class ChatView extends ItemView {
 			this.iconButton(actions, "file-plus", "Insert into note", () => this.insertIntoNote(m));
 			this.iconButton(actions, "refresh-cw", "Regenerate", () => void this.regenerate(m));
 			this.iconButton(actions, "bar-chart-3", "Response stats", () => this.showStats(m));
+			this.attachSpeakerButton(actions, m);
 		}
 		return wrap;
 	}

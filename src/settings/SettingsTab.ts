@@ -37,6 +37,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		this.renderConversations(containerEl);
 		this.renderExport(containerEl);
 		this.renderSlashCommands(containerEl);
+		this.renderTextToSpeech(containerEl);
 		this.renderAppearance(containerEl);
 		this.renderSupport(containerEl);
 	}
@@ -587,6 +588,23 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 			void this.plugin.saveSettings();
 			redraw();
 		});
+	}
+
+	private renderTextToSpeech(container: HTMLElement): void {
+		new Setting(container).setName("Text-to-speech").setHeading();
+
+		new Setting(container)
+			.setName("Enable text-to-speech")
+			.setDesc(
+				"Show a speaker button on each assistant response. Click to read the response aloud using your system voice. Uses the browser's built-in speech synthesis — no network, no API keys.",
+			)
+			.addToggle((t) =>
+				t.setValue(this.plugin.settings.enableTts).onChange(async (v) => {
+					this.plugin.settings.enableTts = v;
+					await this.plugin.saveSettings();
+					this.plugin.notifyViews();
+				}),
+			);
 	}
 
 	private renderAppearance(container: HTMLElement): void {

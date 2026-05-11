@@ -40,6 +40,7 @@ export interface OllamaChatSettings {
 	toolsMaxIterations: number;
 	exportFolder: string;
 	exportDefaultFormat: "md" | "json";
+	enableTts: boolean;
 }
 
 export const DEFAULT_SYSTEM_PROMPT =
@@ -96,6 +97,7 @@ export const DEFAULT_SETTINGS: OllamaChatSettings = {
 	toolsMaxIterations: 5,
 	exportFolder: "Chats",
 	exportDefaultFormat: "md",
+	enableTts: true,
 };
 
 export function mergeSettings(

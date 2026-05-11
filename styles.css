@@ -318,6 +318,16 @@
 	height: 14px;
 }
 
+/* Text-to-speech: hide the speak button when the feature is disabled in settings. */
+.ollama-chat-view.ollama-tts-disabled .ollama-chat-speak-btn {
+	display: none;
+}
+
+/* Visual cue while the speech is in progress. */
+.ollama-chat-view .ollama-chat-speak-btn.is-speaking {
+	color: var(--interactive-accent);
+}
+
 /* ---------- input area ---------- */
 
 .ollama-chat-view .ollama-chat-input-wrap {
