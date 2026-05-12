@@ -184,10 +184,11 @@ export class HistoryDrawer {
 
 	private startRename(row: ConversationSnapshot, titleEl: HTMLElement): void {
 		const current = row.title.trim().length > 0 ? row.title : "";
-		const input = document.createElement("input");
-		input.type = "text";
-		input.value = current;
-		input.className = "ollama-chat-history-row-rename";
+		const input = createEl("input", {
+			cls: "ollama-chat-history-row-rename",
+			value: current,
+			attr: { type: "text" },
+		});
 		titleEl.replaceWith(input);
 		input.focus();
 		input.select();

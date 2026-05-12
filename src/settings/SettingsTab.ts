@@ -428,26 +428,17 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		const current = this.plugin.settings.embedderModel;
 		this.embedderDropdownEl.empty();
 		if (models.length === 0) {
-			const opt = document.createElement("option");
-			opt.value = "";
-			opt.text = "(no models installed)";
-			this.embedderDropdownEl.appendChild(opt);
+			this.embedderDropdownEl.createEl("option", { value: "", text: "(No models installed)" });
 			return;
 		}
 		for (const m of models) {
-			const opt = document.createElement("option");
-			opt.value = m;
-			opt.text = m;
-			this.embedderDropdownEl.appendChild(opt);
+			this.embedderDropdownEl.createEl("option", { value: m, text: m });
 		}
 		if (current && models.includes(current)) {
 			this.embedderDropdownEl.value = current;
 		} else if (current) {
 			// Keep the user's chosen value even if not in the current list.
-			const opt = document.createElement("option");
-			opt.value = current;
-			opt.text = current;
-			this.embedderDropdownEl.appendChild(opt);
+			this.embedderDropdownEl.createEl("option", { value: current, text: current });
 			this.embedderDropdownEl.value = current;
 		} else {
 			this.embedderDropdownEl.value = "";
@@ -687,17 +678,11 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		const current = this.plugin.settings.model;
 		this.modelDropdownEl.empty();
 		if (models.length === 0) {
-			const opt = document.createElement("option");
-			opt.value = "";
-			opt.text = "(no models installed)";
-			this.modelDropdownEl.appendChild(opt);
+			this.modelDropdownEl.createEl("option", { value: "", text: "(No models installed)" });
 			return;
 		}
 		for (const m of models) {
-			const opt = document.createElement("option");
-			opt.value = m;
-			opt.text = m;
-			this.modelDropdownEl.appendChild(opt);
+			this.modelDropdownEl.createEl("option", { value: m, text: m });
 		}
 		if (current && models.includes(current)) {
 			this.modelDropdownEl.value = current;

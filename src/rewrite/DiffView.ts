@@ -1,7 +1,7 @@
 // CodeMirror 6 is provided at runtime by Obsidian; esbuild externalizes these imports.
-// eslint-disable-next-line import/no-extraneous-dependencies
+// eslint-disable-next-line import/no-extraneous-dependencies -- runtime-provided by Obsidian, externalized in esbuild
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
-// eslint-disable-next-line import/no-extraneous-dependencies
+// eslint-disable-next-line import/no-extraneous-dependencies -- runtime-provided by Obsidian, externalized in esbuild
 import { EditorSelection, Extension, StateEffect, StateField } from "@codemirror/state";
 import type { DiffToken } from "./MyersDiff";
 
@@ -63,28 +63,26 @@ class DiffReplaceWidget extends WidgetType {
 	}
 
 	toDOM(view: EditorView): HTMLElement {
-		const container = document.createElement("span");
-		container.className = "ollama-rewrite-diff";
+		const container = createSpan({ cls: "ollama-rewrite-diff" });
 
-		const body = document.createElement("span");
-		body.className = "ollama-rewrite-diff-body";
+		const body = container.createSpan({ cls: "ollama-rewrite-diff-body" });
 		for (const tok of this.payload.tokens) {
-			const span = document.createElement("span");
-			if (tok.type === "equal") span.className = "ollama-rewrite-eq";
-			else if (tok.type === "insert") span.className = "ollama-rewrite-ins";
-			else span.className = "ollama-rewrite-del";
-			span.textContent = tok.text;
-			body.appendChild(span);
+			const cls =
+				tok.type === "equal"
+					? "ollama-rewrite-eq"
+					: tok.type === "insert"
+						? "ollama-rewrite-ins"
+						: "ollama-rewrite-del";
+			body.createSpan({ cls, text: tok.text });
 		}
-		container.appendChild(body);
 
-		const chips = document.createElement("span");
-		chips.className = "ollama-rewrite-chips";
+		const chips = container.createSpan({ cls: "ollama-rewrite-chips" });
 
-		const acceptBtn = document.createElement("button");
-		acceptBtn.type = "button";
-		acceptBtn.className = "ollama-rewrite-chip ollama-rewrite-chip-accept";
-		acceptBtn.textContent = "Accept";
+		const acceptBtn = chips.createEl("button", {
+			cls: "ollama-rewrite-chip ollama-rewrite-chip-accept",
+			text: "Accept",
+			attr: { type: "button" },
+		});
 		acceptBtn.addEventListener("mousedown", (ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -98,10 +96,11 @@ class DiffReplaceWidget extends WidgetType {
 			});
 		});
 
-		const rejectBtn = document.createElement("button");
-		rejectBtn.type = "button";
-		rejectBtn.className = "ollama-rewrite-chip ollama-rewrite-chip-reject";
-		rejectBtn.textContent = "Reject";
+		const rejectBtn = chips.createEl("button", {
+			cls: "ollama-rewrite-chip ollama-rewrite-chip-reject",
+			text: "Reject",
+			attr: { type: "button" },
+		});
 		rejectBtn.addEventListener("mousedown", (ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -110,10 +109,6 @@ class DiffReplaceWidget extends WidgetType {
 				userEvent: "ollama.rewrite.reject",
 			});
 		});
-
-		chips.appendChild(acceptBtn);
-		chips.appendChild(rejectBtn);
-		container.appendChild(chips);
 
 		return container;
 	}

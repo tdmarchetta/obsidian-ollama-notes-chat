@@ -64,7 +64,7 @@ export function fillFilenameTemplate(template: string, activeTitle?: string): st
 function sanitizeInterpolatedValue(value: string): string {
 	// Strip anything that would let the value act as a path segment or
 	// filename-reserved glyph on any supported filesystem.
-	// eslint-disable-next-line no-control-regex
+	// eslint-disable-next-line no-control-regex -- intentional: filesystem-reserved control chars must be matched as a class
 	return value.replace(/[\\/:*?"<>|\x00-\x1f]/g, "-").trim() || "chat";
 }
 
@@ -73,7 +73,7 @@ export function sanitizeFilename(name: string): string {
 	// template like "{{title}}" evaluated to "../secret" cannot produce a
 	// dotfile or traverse after concat with the folder.
 	const cleaned = name
-		// eslint-disable-next-line no-control-regex
+		// eslint-disable-next-line no-control-regex -- intentional: filesystem-reserved control chars must be matched as a class
 		.replace(/[\\/:*?"<>|\x00-\x1f]/g, "-")
 		.replace(/\s+/g, " ")
 		.replace(/^[.\s]+/, "")

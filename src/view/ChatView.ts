@@ -965,12 +965,12 @@ export class ChatView extends ItemView {
 		if (!this.titleEl) return;
 		if (this.conv.isEmpty) return;
 		const current = this.conv.title;
-		const input = document.createElement("input");
-		input.type = "text";
-		input.value = current;
-		input.className = "ollama-chat-title-input";
 		this.titleEl.empty();
-		this.titleEl.appendChild(input);
+		const input = this.titleEl.createEl("input", {
+			cls: "ollama-chat-title-input",
+			value: current,
+			attr: { type: "text" },
+		});
 		input.focus();
 		input.select();
 

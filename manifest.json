@@ -1,8 +1,8 @@
 {
   "id": "ollama-notes-chat",
   "name": "Ollama Notes Chat",
-  "version": "0.7.2",
-  "minAppVersion": "1.4.0",
+  "version": "0.7.3",
+  "minAppVersion": "1.7.2",
   "description": "Chat with your notes in a right sidebar using a remote Ollama server.",
   "author": "Taylor Marchetta",
   "authorUrl": "https://github.com/tdmarchetta",

@@ -387,8 +387,9 @@ export function parseToolCall(raw: OllamaToolCall): ParsedToolCall | null {
 }
 
 function newCallId(): string {
-	const c = (globalThis as { crypto?: Crypto }).crypto;
-	if (c && typeof c.randomUUID === "function") return c.randomUUID();
+	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+		return crypto.randomUUID();
+	}
 	return `tc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 

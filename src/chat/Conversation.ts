@@ -164,8 +164,9 @@ export class Conversation {
 }
 
 export function newId(): string {
-	const c = (globalThis as { crypto?: Crypto }).crypto;
-	if (c && typeof c.randomUUID === "function") return c.randomUUID();
+	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+		return crypto.randomUUID();
+	}
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
