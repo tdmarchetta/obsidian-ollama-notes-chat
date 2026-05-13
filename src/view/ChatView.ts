@@ -506,7 +506,7 @@ export class ChatView extends ItemView {
 	}
 
 	private scrollToBottom(): void {
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			this.listEl.scrollTop = this.listEl.scrollHeight;
 		});
 	}

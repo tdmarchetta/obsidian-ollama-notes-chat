@@ -54,7 +54,7 @@ export class StatsModal extends Modal {
 		copyBtn.addEventListener("click", () => {
 			void navigator.clipboard.writeText(this.asMarkdown());
 			copyBtn.setText("Copied ✓");
-			activeWindow.setTimeout(() => copyBtn.setText("Copy as Markdown"), 1200);
+			window.setTimeout(() => copyBtn.setText("Copy as Markdown"), 1200);
 		});
 	}
 
