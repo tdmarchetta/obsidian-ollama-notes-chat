@@ -778,15 +778,16 @@
 	/* Root container — Obsidian's built-in Settings container. Nothing to override here. */
 }
 
-/* Wide system-prompt textarea: stack the Setting vertically so the textarea
-   can span the full width of the settings pane. */
-.ollama-chat-settings .setting-item:has(.ollama-chat-textarea-wide) {
+/* Wide-textarea settings (system prompt, rewrite system prompt): stack the
+   Setting vertically so the textarea can span the full settings-pane width.
+   Container tagged via Setting.setClass() in SettingsTab.ts. */
+.ollama-chat-settings .setting-item.ollama-chat-setting-wide {
 	flex-direction: column;
 	align-items: stretch;
 	gap: 8px;
 }
 
-.ollama-chat-settings .setting-item:has(.ollama-chat-textarea-wide) .setting-item-control {
+.ollama-chat-settings .setting-item.ollama-chat-setting-wide .setting-item-control {
 	justify-content: stretch;
 	width: 100%;
 }

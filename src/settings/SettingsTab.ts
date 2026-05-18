@@ -121,6 +121,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		new Setting(container)
 			.setName("System prompt")
 			.setDesc("Prepended to every conversation. Drop this to start fresh.")
+			.setClass("ollama-chat-setting-wide")
 			.addTextArea((ta) => {
 				ta.setPlaceholder(DEFAULT_SYSTEM_PROMPT)
 					.setValue(this.plugin.settings.systemPrompt)
@@ -213,6 +214,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 			.setDesc(
 				"Used by the rewrite selection editor command. Independent from chat's system prompt.",
 			)
+			.setClass("ollama-chat-setting-wide")
 			.addTextArea((ta) => {
 				ta.setPlaceholder(DEFAULT_REWRITE_SYSTEM_PROMPT)
 					.setValue(this.plugin.settings.rewriteSystemPrompt)

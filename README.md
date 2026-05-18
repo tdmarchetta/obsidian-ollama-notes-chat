@@ -1,4 +1,4 @@
-# Ollama Chat for Obsidian
+# Ollama Notes Chat
 
 A right-sidebar chat panel that lets you chat with your notes using a remote Ollama server over its native chat API. Personal-use, local-first — nothing leaves your LAN.
 
