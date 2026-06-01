@@ -1,6 +1,6 @@
 # Ollama Notes Chat
 
-A right-sidebar chat panel that lets you chat with your notes using a remote Ollama server over its native chat API. Personal-use, local-first — nothing leaves your LAN.
+A right-sidebar chat panel that lets you chat with your notes using a remote Ollama server over its native chat API. Local-first — nothing leaves your LAN.
 
 ## Features
 
@@ -19,6 +19,24 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 - **Multi-session history** — keep as many parallel chats as you want. The header's history icon opens a drawer listing every conversation with its preview and "last updated" stamp; click any row to switch, click the title to rename in place, trash icon to delete. New chat via the `+` icon or command palette.
 - **Auto-titled conversations** — new chats derive their title from your first message (slash-command prefix stripped). Manual rename sticks forever; the auto-titler never overwrites it.
 
+## Screenshots
+
+> _Screenshots pending capture. The shot list and exact filenames live in [`assets/README.md`](assets/README.md); drop the PNGs into `assets/` and uncomment the block below to enable this section._
+
+<!-- Uncomment once the matching image files exist in assets/ (names must match assets/README.md):
+| Chat sidebar | Settings |
+| --- | --- |
+| ![Chat sidebar](assets/chat-sidebar.png) | ![Settings](assets/settings.png) |
+
+| RAG citations | Rewrite diff |
+| --- | --- |
+| ![RAG citations](assets/rag-citation.png) | ![Rewrite diff](assets/rewrite-diff.png) |
+
+| History drawer |
+| --- |
+| ![History drawer](assets/history-drawer.png) |
+-->
+
 ## Prerequisites
 
 1. **Ollama running on another PC on your LAN.** On the host:
@@ -26,22 +44,22 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 	```bash
 	# macOS
 	launchctl setenv OLLAMA_HOST "0.0.0.0:11434"
-	launchctl setenv OLLAMA_ORIGINS "*"
+	launchctl setenv OLLAMA_ORIGINS "app://obsidian.md"
 	# restart Ollama
 
 	# Linux (systemd)
 	sudo systemctl edit ollama.service
 	# add under [Service]:
 	#   Environment="OLLAMA_HOST=0.0.0.0:11434"
-	#   Environment="OLLAMA_ORIGINS=*"
+	#   Environment="OLLAMA_ORIGINS=app://obsidian.md"
 	sudo systemctl restart ollama
 
 	# Windows
-	# Set OLLAMA_HOST=0.0.0.0:11434 and OLLAMA_ORIGINS=* in System Environment Variables,
+	# Set OLLAMA_HOST=0.0.0.0:11434 and OLLAMA_ORIGINS=app://obsidian.md in System Environment Variables,
 	# then restart the Ollama app.
 	```
 
-	`OLLAMA_ORIGINS=*` is required so Obsidian can make streaming `fetch` requests to Ollama across the LAN. If you want tighter security, set it to `app://obsidian.md` instead (comma-separate for multiple values).
+	Obsidian needs `OLLAMA_ORIGINS` set so it can make streaming `fetch` requests to Ollama across the LAN. **Prefer `app://obsidian.md`** — it scopes access to Obsidian only. `OLLAMA_ORIGINS=*` also works and is convenient for troubleshooting, but it's less restrictive, so avoid leaving it as `*` on a host exposed to your LAN. Comma-separate the value to allow multiple origins.
 
 2. At least one Ollama chat model pulled, plus (if you want retrieval / RAG) an embedder model:
 
@@ -50,39 +68,45 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 	ollama pull nomic-embed-text      # embedder — only needed for the retrieval context mode
 	```
 
-3. Node.js on your Mac (only needed once, to build this plugin):
-
-	```bash
-	brew install node
-	```
-
 ## Install
 
-1. Build the plugin:
+**From Obsidian's Community plugins browser (recommended):**
+
+1. Open **Settings → Community plugins** and turn off Restricted mode if prompted.
+2. Click **Browse**, search for **"Ollama Notes Chat"**, and click **Install**.
+3. Click **Enable**.
+
+Then configure it:
+
+4. Open **Settings → Ollama Notes Chat**:
+	- Set the **Base URL** to your Ollama host, e.g. `http://192.168.1.50:11434`.
+	- Click **Test** — you should see "Connected — N models available".
+	- Pick a model from the dropdown.
+5. Click the chat-bubble icon in the left ribbon to open the sidebar, and start chatting.
+
+## Build from source (development)
+
+Only needed if you want to hack on the plugin or run an unreleased build. Requires Node.js (`brew install node` on macOS).
+
+1. Clone and build:
 
 	```bash
-	cd "/path/to/Obsidian_Plugin_Ollama_Chat"
+	git clone https://github.com/tdmarchetta/obsidian-ollama-notes-chat.git
+	cd obsidian-ollama-notes-chat
 	npm install
 	npm run build
 	```
 
 	This produces `main.js` alongside `manifest.json` and `styles.css`.
 
-2. Copy (or symlink) the plugin folder into your vault's plugins directory:
+2. Copy (or symlink) the plugin folder into your vault's plugins directory. The folder name must match the plugin id, `ollama-notes-chat`:
 
 	```bash
-	ln -s "/path/to/Obsidian_Plugin_Ollama_Chat" \
+	ln -s "/path/to/obsidian-ollama-notes-chat" \
 	       "/path/to/vault/.obsidian/plugins/ollama-notes-chat"
 	```
 
-3. In Obsidian, open **Settings → Community plugins**, turn off restricted mode if needed, reload plugins, and enable **Ollama Notes Chat**.
-
-4. Open **Settings → Ollama Notes Chat**:
-	- Set the **Base URL** to your Ollama host, e.g. `http://192.168.1.50:11434`.
-	- Click **Test** — you should see "Connected — N models available".
-	- Pick a model from the dropdown.
-
-5. Click the chat-bubble icon in the left ribbon to open the sidebar, and start chatting.
+3. In Obsidian, open **Settings → Community plugins**, turn off Restricted mode if needed, reload plugins, and enable **Ollama Notes Chat**. Then set the Base URL as described above.
 
 ## Retrieval / RAG setup (optional)
 
@@ -116,7 +140,7 @@ When this note is the active context, the plugin uses these values instead of th
 
 ## Troubleshooting
 
-- **"Cannot reach server"** — check that Ollama is running and that `OLLAMA_HOST=0.0.0.0:11434` and `OLLAMA_ORIGINS=*` are set on the host. Restart Ollama after setting them.
+- **"Cannot reach server"** — check that Ollama is running and that `OLLAMA_HOST=0.0.0.0:11434` and `OLLAMA_ORIGINS=app://obsidian.md` are set on the host. Restart Ollama after setting them. (If it still won't connect, temporarily try `OLLAMA_ORIGINS=*` to rule out an origins issue.)
 - **Streams but errors partway** — the response may have hit the model's context window or max-tokens limit. Raise max tokens in settings or use a larger model.
 - **Model dropdown is empty** — click the refresh button next to it. If still empty, run `ollama list` on the host to verify models are installed.
 - **Context is too long warning** — switch the context mode to "Current selection" to only include highlighted text, or raise the truncation limit in settings.

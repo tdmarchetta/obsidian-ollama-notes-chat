@@ -173,8 +173,10 @@ async function buildRetrievalContext(
 	const blocks: string[] = [];
 	const contributors: TFile[] = [];
 	const seenPaths = new Set<string>();
+	const dupBasenames = duplicateBasenames(app);
 	for (const hit of hits) {
-		const citation = formatCitation(hit.notePath, hit.chunk.heading);
+		const ambiguous = dupBasenames.has(basenameOf(hit.notePath));
+		const citation = formatCitation(hit.notePath, hit.chunk.heading, ambiguous);
 		blocks.push(`From ${citation}:\n${hit.chunk.text.trim()}\n`);
 		if (!seenPaths.has(hit.notePath)) {
 			seenPaths.add(hit.notePath);
@@ -188,12 +190,32 @@ async function buildRetrievalContext(
 	return { ...finalized, retrievalStatus: "ok" };
 }
 
-function formatCitation(notePath: string, heading?: string): string {
-	const basename = notePath.replace(/\.md$/, "").split("/").pop() ?? notePath;
-	if (heading && heading.length > 0) {
-		return `[[${basename}#${heading}]]`;
+function basenameOf(notePath: string): string {
+	return notePath.replace(/\.md$/, "").split("/").pop() ?? notePath;
+}
+
+function duplicateBasenames(app: App): Set<string> {
+	const counts = new Map<string, number>();
+	for (const file of app.vault.getMarkdownFiles()) {
+		counts.set(file.basename, (counts.get(file.basename) ?? 0) + 1);
 	}
-	return `[[${basename}]]`;
+	const dups = new Set<string>();
+	for (const [name, count] of counts) {
+		if (count > 1) dups.add(name);
+	}
+	return dups;
+}
+
+// Plain `[[Note#Heading]]` reads cleaner, but collides when two notes share a basename;
+// when `ambiguous`, qualify with the full path and alias the display back to the basename.
+export function formatCitation(notePath: string, heading?: string, ambiguous = false): string {
+	const basename = basenameOf(notePath);
+	const suffix = heading && heading.length > 0 ? `#${heading}` : "";
+	if (ambiguous) {
+		const pathNoExt = notePath.replace(/\.md$/, "");
+		return `[[${pathNoExt}${suffix}|${basename}${suffix}]]`;
+	}
+	return `[[${basename}${suffix}]]`;
 }
 
 function finalize(
