@@ -1097,7 +1097,7 @@ function isSafeExternalHref(href: string): boolean {
 
 function messageToChatMessage(m: Message): ChatMessage {
 	const base: ChatMessage = {
-		role: m.role as ChatMessage["role"],
+		role: m.role,
 		content: m.content,
 	};
 	if (m.role === "assistant" && m.toolCalls && m.toolCalls.length > 0) {

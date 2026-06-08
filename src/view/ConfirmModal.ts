@@ -33,6 +33,7 @@ export class ConfirmModal extends Modal {
 			.addButton((b) =>
 				b
 					.setButtonText(this.confirmLabel)
+					// eslint-disable-next-line @typescript-eslint/no-deprecated -- setWarning() retained for minAppVersion 1.7.2 compatibility; setDestructive() is a newer API
 					.setWarning()
 					.onClick(() => {
 						this.decided = true;
