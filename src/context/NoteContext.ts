@@ -76,9 +76,7 @@ export function getPerNoteOverride(
 	file: TFile | null,
 ): PerNoteFrontmatterOverride {
 	if (!file) return {};
-	const fm = app.metadataCache.getFileCache(file)?.frontmatter as
-		| Record<string, unknown>
-		| undefined;
+	const fm = app.metadataCache.getFileCache(file)?.frontmatter;
 	const ai = fm?.ai as Record<string, unknown> | undefined;
 	if (!ai || typeof ai !== "object") return {};
 	const out: PerNoteFrontmatterOverride = {};
