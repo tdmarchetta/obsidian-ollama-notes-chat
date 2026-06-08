@@ -1,6 +1,6 @@
 {
   "name": "obsidian-ollama-notes-chat",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "description": "Chat with your notes in a right sidebar using a remote Ollama server.",
   "main": "main.js",
   "scripts": {
@@ -18,11 +18,19 @@
   ],
   "author": "Taylor Marchetta",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tdmarchetta/obsidian-ollama-notes-chat.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tdmarchetta/obsidian-ollama-notes-chat/issues"
+  },
+  "homepage": "https://github.com/tdmarchetta/obsidian-ollama-notes-chat#readme",
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^8.58.2",
     "@typescript-eslint/parser": "^8.58.2",
-    "esbuild": "^0.20.0",
+    "esbuild": "^0.25.0",
     "eslint": "^9.39.4",
     "eslint-plugin-no-unsanitized": "^4.1.5",
     "eslint-plugin-obsidianmd": "^0.2.3",
@@ -30,6 +38,6 @@
     "tslib": "^2.6.2",
     "typescript": "^5.3.3",
     "typescript-eslint": "^8.58.2",
-    "vitest": "^2.1.0"
+    "vitest": "^4.0.0"
   }
 }
