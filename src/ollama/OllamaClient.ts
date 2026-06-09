@@ -407,8 +407,11 @@ function nsToMs(ns: number | undefined): number {
  *
  * Empty input is tolerated (the client is instantiated before settings
  * merge finishes); the caller's fetch will fail loudly.
+ *
+ * Exported for unit testing the ADR-007 H1 scheme allow-list; production
+ * callers reach it only through the `OllamaClient` constructor / `setBaseUrl`.
  */
-function normalize(url: string): string {
+export function normalize(url: string): string {
 	const trimmed = url.trim().replace(/\/+$/, "");
 	if (!trimmed) return "";
 	try {

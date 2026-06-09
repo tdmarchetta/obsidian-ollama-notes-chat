@@ -180,3 +180,53 @@ describe("VectorStore.load", () => {
 		expect(store.hasNote("bad.md")).toBe(false);
 	});
 });
+
+describe("VectorStore.topK", () => {
+	function seeded(): VectorStore {
+		const store = new VectorStore(new FakeAdapter() as unknown as DataAdapter, PATH);
+		store.upsert("a.md", [{ text: "a", embedding: [1, 0, 0] }], 1);
+		store.upsert("b.md", [{ text: "b", embedding: [0, 1, 0] }], 1);
+		store.upsert("c.md", [{ text: "c", embedding: [1, 1, 0] }], 1);
+		return store;
+	}
+
+	it("ranks by cosine similarity and respects k", () => {
+		const store = seeded();
+		const hits = store.topK([1, 0, 0], 2);
+		expect(hits).toHaveLength(2);
+		expect(hits[0].notePath).toBe("a.md");
+		expect(hits[0].score).toBeCloseTo(1, 6); // identical direction
+		expect(hits[1].notePath).toBe("c.md");
+		expect(hits[1].score).toBeCloseTo(1 / Math.SQRT2, 6); // 45° apart
+	});
+
+	it("returns identical results across repeated queries (norm cache is transparent)", () => {
+		const store = seeded();
+		const first = store.topK([1, 0, 0], 3);
+		const second = store.topK([1, 0, 0], 3);
+		expect(second.map((h) => [h.notePath, h.score])).toEqual(
+			first.map((h) => [h.notePath, h.score]),
+		);
+	});
+
+	it("reflects a re-chunk: re-upserting a note recomputes its norm", () => {
+		const store = seeded();
+		expect(store.topK([1, 0, 0], 1)[0].notePath).toBe("a.md");
+		// Replace a.md's chunk with an orthogonal embedding. A norm cached by
+		// path (rather than by the chunk object) would mis-score this; the
+		// WeakMap keys on the fresh chunk object, so the norm is recomputed.
+		store.upsert("a.md", [{ text: "a2", embedding: [0, 0, 1] }], 2);
+		const hits = store.topK([1, 0, 0], 3);
+		expect(hits[0].notePath).toBe("c.md");
+		expect(hits.find((h) => h.notePath === "a.md")?.score).toBeCloseTo(0, 6);
+	});
+
+	it("returns an empty list for a zero-norm query", () => {
+		expect(seeded().topK([0, 0, 0], 3)).toEqual([]);
+	});
+
+	it("skips chunks whose embedding length differs from the query", () => {
+		// 4-dim query vs. all-3-dim index → nothing comparable.
+		expect(seeded().topK([1, 0, 0, 0], 3)).toEqual([]);
+	});
+});

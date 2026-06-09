@@ -7,6 +7,7 @@ import {
 	FontSize,
 	SlashCommand,
 } from "./Settings";
+import { parseBoundedInt } from "../util/parseBoundedInt";
 
 export class OllamaChatSettingTab extends PluginSettingTab {
 	private plugin: OllamaChatPlugin;
@@ -153,8 +154,8 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				text
 					.setValue(String(this.plugin.settings.maxTokens))
 					.onChange(async (v) => {
-						const n = parseInt(v, 10);
-						if (!Number.isFinite(n) || n <= 0) return;
+						const n = parseBoundedInt(v, 1);
+						if (n === null) return;
 						this.plugin.settings.maxTokens = n;
 						await this.plugin.saveSettings();
 					}),
@@ -167,8 +168,8 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				text
 					.setValue(String(this.plugin.settings.defaultModelContextLimit))
 					.onChange(async (v) => {
-						const n = parseInt(v, 10);
-						if (!Number.isFinite(n) || n <= 0) return;
+						const n = parseBoundedInt(v, 1);
+						if (n === null) return;
 						this.plugin.settings.defaultModelContextLimit = n;
 						await this.plugin.saveSettings();
 						this.plugin.notifyViews();
@@ -268,8 +269,8 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				text
 					.setValue(String(this.plugin.settings.truncationLimit))
 					.onChange(async (v) => {
-						const n = parseInt(v, 10);
-						if (!Number.isFinite(n) || n <= 0) return;
+						const n = parseBoundedInt(v, 1);
+						if (n === null) return;
 						this.plugin.settings.truncationLimit = n;
 						await this.plugin.saveSettings();
 					}),
@@ -332,8 +333,8 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 			.setName("Chunk size (chars)")
 			.addText((t) =>
 				t.setValue(String(this.plugin.settings.ragChunkSize)).onChange(async (v) => {
-					const n = parseInt(v, 10);
-					if (!Number.isFinite(n) || n < 100) return;
+					const n = parseBoundedInt(v, 100);
+					if (n === null) return;
 					this.plugin.settings.ragChunkSize = n;
 					await this.plugin.saveSettings();
 				}),
@@ -343,8 +344,8 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 			.setName("Chunk overlap (chars)")
 			.addText((t) =>
 				t.setValue(String(this.plugin.settings.ragChunkOverlap)).onChange(async (v) => {
-					const n = parseInt(v, 10);
-					if (!Number.isFinite(n) || n < 0) return;
+					const n = parseBoundedInt(v, 0);
+					if (n === null) return;
 					this.plugin.settings.ragChunkOverlap = n;
 					await this.plugin.saveSettings();
 				}),
@@ -482,8 +483,8 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				text
 					.setValue(String(this.plugin.settings.autoSaveEvery))
 					.onChange(async (v) => {
-						const n = parseInt(v, 10);
-						if (!Number.isFinite(n) || n < 0) return;
+						const n = parseBoundedInt(v, 0);
+						if (n === null) return;
 						this.plugin.settings.autoSaveEvery = n;
 						await this.plugin.saveSettings();
 					}),
