@@ -28,11 +28,14 @@ export function diffTokens(a: string[], b: string[]): DiffToken[] {
 	outer: for (let d = 0; d <= max; d++) {
 		trace.push(v.slice());
 		for (let k = -d; k <= d; k += 2) {
+			// The `?? 0` fallbacks here and in the backtrack below never fire —
+			// every index is in [0, 2*max] by the Myers invariant — they only
+			// satisfy noUncheckedIndexedAccess without behavior change.
 			let x: number;
-			if (k === -d || (k !== d && v[offset + k - 1] < v[offset + k + 1])) {
-				x = v[offset + k + 1];
+			if (k === -d || (k !== d && (v[offset + k - 1] ?? 0) < (v[offset + k + 1] ?? 0))) {
+				x = v[offset + k + 1] ?? 0;
 			} else {
-				x = v[offset + k - 1] + 1;
+				x = (v[offset + k - 1] ?? 0) + 1;
 			}
 			let y = x - k;
 			while (x < n && y < m && a[x] === b[y]) {
@@ -53,39 +56,40 @@ export function diffTokens(a: string[], b: string[]): DiffToken[] {
 	let y = m;
 	for (let d = trace.length - 1; d > 0; d--) {
 		const prev = trace[d];
+		if (!prev) break; // unreachable: d < trace.length throughout
 		const k = x - y;
 		let prevK: number;
-		if (k === -d || (k !== d && prev[offset + k - 1] < prev[offset + k + 1])) {
+		if (k === -d || (k !== d && (prev[offset + k - 1] ?? 0) < (prev[offset + k + 1] ?? 0))) {
 			prevK = k + 1;
 		} else {
 			prevK = k - 1;
 		}
-		const prevX = prev[offset + prevK];
+		const prevX = prev[offset + prevK] ?? 0;
 		const prevY = prevX - prevK;
 		while (x > prevX && y > prevY) {
-			out.push({ type: "equal", text: a[x - 1] });
+			out.push({ type: "equal", text: a[x - 1] ?? "" });
 			x--;
 			y--;
 		}
 		if (x === prevX) {
-			out.push({ type: "insert", text: b[y - 1] });
+			out.push({ type: "insert", text: b[y - 1] ?? "" });
 			y--;
 		} else {
-			out.push({ type: "delete", text: a[x - 1] });
+			out.push({ type: "delete", text: a[x - 1] ?? "" });
 			x--;
 		}
 	}
 	while (x > 0 && y > 0 && a[x - 1] === b[y - 1]) {
-		out.push({ type: "equal", text: a[x - 1] });
+		out.push({ type: "equal", text: a[x - 1] ?? "" });
 		x--;
 		y--;
 	}
 	while (x > 0) {
-		out.push({ type: "delete", text: a[x - 1] });
+		out.push({ type: "delete", text: a[x - 1] ?? "" });
 		x--;
 	}
 	while (y > 0) {
-		out.push({ type: "insert", text: b[y - 1] });
+		out.push({ type: "insert", text: b[y - 1] ?? "" });
 		y--;
 	}
 

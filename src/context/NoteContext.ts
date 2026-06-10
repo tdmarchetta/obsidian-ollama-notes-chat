@@ -152,7 +152,11 @@ async function buildRetrievalContext(
 	let queryVec: number[];
 	try {
 		const result = await deps.ollama.embed(settings.embedderModel, query);
-		queryVec = result[0];
+		const first = result[0];
+		// An empty embeddings array previously slipped through as `undefined`
+		// and crashed in topK(); treat it as a failed embed instead.
+		if (!first) return { ...base, retrievalStatus: "embed-failed" };
+		queryVec = first;
 	} catch (err) {
 		console.warn("[ollama-notes-chat] query embed failed", err);
 		return { ...base, retrievalStatus: "embed-failed" };

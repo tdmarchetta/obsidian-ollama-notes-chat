@@ -560,7 +560,9 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		});
 		nameInput.value = cmd.name;
 		nameInput.addEventListener("change", () => {
-			this.plugin.settings.slashCommands[idx].name = nameInput.value.trim() || cmd.name;
+			const target = this.plugin.settings.slashCommands[idx];
+			if (!target) return;
+			target.name = nameInput.value.trim() || cmd.name;
 			void this.plugin.saveSettings();
 		});
 
@@ -570,7 +572,9 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		});
 		templateInput.value = cmd.template;
 		templateInput.addEventListener("change", () => {
-			this.plugin.settings.slashCommands[idx].template = templateInput.value;
+			const target = this.plugin.settings.slashCommands[idx];
+			if (!target) return;
+			target.template = templateInput.value;
 			void this.plugin.saveSettings();
 		});
 
@@ -690,8 +694,10 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 		if (current && models.includes(current)) {
 			this.modelDropdownEl.value = current;
 		} else {
-			this.modelDropdownEl.value = models[0];
-			this.plugin.settings.model = models[0];
+			// models is non-empty here (the length === 0 branch returned above).
+			const first = models[0] ?? "";
+			this.modelDropdownEl.value = first;
+			this.plugin.settings.model = first;
 			await this.plugin.saveSettings();
 		}
 	}

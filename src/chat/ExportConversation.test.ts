@@ -51,8 +51,8 @@ describe("renderJson", () => {
 		const snap = makeSnapshot();
 		const result = JSON.parse(renderJson([snap])) as ConversationSnapshot[];
 		expect(result).toHaveLength(1);
-		expect(result[0].id).toBe("test-id");
-		expect(result[0].title).toBe("Test Conversation");
+		expect(result[0]!.id).toBe("test-id");
+		expect(result[0]!.title).toBe("Test Conversation");
 	});
 
 	it("handles an empty array", () => {
@@ -134,14 +134,14 @@ describe("exportToMarkdown", () => {
 	it("created paths start with the sanitized folder", async () => {
 		const { app, create } = makeApp();
 		await exportToMarkdown(app, [makeSnapshot()], "Chats/Exports", "{{date}} — {{title}}");
-		const calledPath = create.mock.calls[0][0] as string;
+		const calledPath = create.mock.calls[0]![0] as string;
 		expect(calledPath.startsWith("Chats/Exports/")).toBe(true);
 	});
 
 	it("sanitizes a traversal folder to 'Chats'", async () => {
 		const { app, create } = makeApp();
 		await exportToMarkdown(app, [makeSnapshot()], "../evil", "{{title}}");
-		const calledPath = create.mock.calls[0][0] as string;
+		const calledPath = create.mock.calls[0]![0] as string;
 		expect(calledPath.startsWith("Chats/")).toBe(true);
 	});
 });
@@ -156,7 +156,7 @@ describe("exportToJson", () => {
 	it("filename matches the ollama-export-YYYY-MM-DD.json pattern", async () => {
 		const { app, create } = makeApp();
 		await exportToJson(app, [makeSnapshot()], "Chats");
-		const calledPath = create.mock.calls[0][0] as string;
+		const calledPath = create.mock.calls[0]![0] as string;
 		expect(calledPath).toMatch(/ollama-export-\d{4}-\d{2}-\d{2}\.json$/);
 	});
 
@@ -164,10 +164,10 @@ describe("exportToJson", () => {
 		const snap = makeSnapshot();
 		const { app, create } = makeApp();
 		await exportToJson(app, [snap], "Chats");
-		const content = create.mock.calls[0][1] as string;
+		const content = create.mock.calls[0]![1] as string;
 		const parsed = JSON.parse(content) as ConversationSnapshot[];
 		expect(parsed).toHaveLength(1);
-		expect(parsed[0].id).toBe("test-id");
+		expect(parsed[0]!.id).toBe("test-id");
 	});
 
 	it("deduplicates filename when path already exists", async () => {

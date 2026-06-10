@@ -79,15 +79,16 @@ export class Conversation {
 	}
 
 	appendToLast(delta: string): void {
-		if (this.messages.length === 0) return;
 		const last = this.messages[this.messages.length - 1];
+		if (!last) return;
 		last.content += delta;
 		this.updatedAt = Date.now();
 	}
 
 	markLastStopped(): void {
-		if (this.messages.length === 0) return;
-		this.messages[this.messages.length - 1].stopped = true;
+		const last = this.messages[this.messages.length - 1];
+		if (!last) return;
+		last.stopped = true;
 		this.updatedAt = Date.now();
 	}
 
@@ -178,7 +179,7 @@ export function deriveAutoTitle(messages: Message[]): string | null {
 	// Strip a leading slash command (e.g. "/summarize ") so chats aren't all titled "/summarize…".
 	const stripped = text.replace(/^\/\w+(\s+|$)/, "").trim();
 	if (stripped.length > 0) text = stripped;
-	text = text.split("\n")[0].trim();
+	text = (text.split("\n")[0] ?? "").trim();
 	if (text.length === 0) return null;
 	if (text.length > 40) text = text.slice(0, 40).trimEnd() + "…";
 	return text;

@@ -605,7 +605,9 @@ export class ChatView extends ItemView {
 
 	private cycleContextMode(): void {
 		const idx = CONTEXT_MODE_ORDER.indexOf(this.contextMode);
-		this.contextMode = CONTEXT_MODE_ORDER[(idx + 1) % CONTEXT_MODE_ORDER.length];
+		// The modulo keeps the index in-bounds; `?? "none"` only satisfies
+		// noUncheckedIndexedAccess.
+		this.contextMode = CONTEXT_MODE_ORDER[(idx + 1) % CONTEXT_MODE_ORDER.length] ?? "none";
 		this.refreshSubheader();
 		this.updateInputPlaceholder();
 	}

@@ -194,10 +194,10 @@ describe("VectorStore.topK", () => {
 		const store = seeded();
 		const hits = store.topK([1, 0, 0], 2);
 		expect(hits).toHaveLength(2);
-		expect(hits[0].notePath).toBe("a.md");
-		expect(hits[0].score).toBeCloseTo(1, 6); // identical direction
-		expect(hits[1].notePath).toBe("c.md");
-		expect(hits[1].score).toBeCloseTo(1 / Math.SQRT2, 6); // 45° apart
+		expect(hits[0]!.notePath).toBe("a.md");
+		expect(hits[0]!.score).toBeCloseTo(1, 6); // identical direction
+		expect(hits[1]!.notePath).toBe("c.md");
+		expect(hits[1]!.score).toBeCloseTo(1 / Math.SQRT2, 6); // 45° apart
 	});
 
 	it("returns identical results across repeated queries (norm cache is transparent)", () => {
@@ -211,13 +211,13 @@ describe("VectorStore.topK", () => {
 
 	it("reflects a re-chunk: re-upserting a note recomputes its norm", () => {
 		const store = seeded();
-		expect(store.topK([1, 0, 0], 1)[0].notePath).toBe("a.md");
+		expect(store.topK([1, 0, 0], 1)[0]!.notePath).toBe("a.md");
 		// Replace a.md's chunk with an orthogonal embedding. A norm cached by
 		// path (rather than by the chunk object) would mis-score this; the
 		// WeakMap keys on the fresh chunk object, so the norm is recomputed.
 		store.upsert("a.md", [{ text: "a2", embedding: [0, 0, 1] }], 2);
 		const hits = store.topK([1, 0, 0], 3);
-		expect(hits[0].notePath).toBe("c.md");
+		expect(hits[0]!.notePath).toBe("c.md");
 		expect(hits.find((h) => h.notePath === "a.md")?.score).toBeCloseTo(0, 6);
 	});
 

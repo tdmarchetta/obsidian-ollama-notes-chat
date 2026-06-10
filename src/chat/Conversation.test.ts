@@ -54,7 +54,7 @@ describe("Conversation", () => {
 			c.addAssistant("answer");
 			c.addTool("call-1", "read_note", "result");
 			expect(c.messages.map((m) => m.role)).toEqual(["user", "assistant", "tool"]);
-			const tool = c.messages[2];
+			const tool = c.messages[2]!;
 			expect(tool.toolCallId).toBe("call-1");
 			expect(tool.toolName).toBe("read_note");
 			expect(tool.content).toBe("result");

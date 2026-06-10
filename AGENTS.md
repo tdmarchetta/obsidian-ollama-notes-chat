@@ -44,7 +44,9 @@ Obsidian right-sidebar plugin that chats with your notes via a remote Ollama ser
 
 Prior — **0.7.7** (2026-06-08, `7edb31e`): RAG citation disambiguation (`formatCitation` in `NoteContext.ts`), esbuild `^0.28` + vitest `^4`, `ci.yml` (lint/test/build/audit on push+PR), package metadata, README rewrite, this `AGENTS.md` mirror. esbuild went to `^0.28` (not `^0.25`) because vitest 4 → vite 7 peer-requires `esbuild ^0.27||^0.28` — **run `npm ci`, not just `npm install`, before tagging** (`install` hides a drifted lock; `ci` is what CI enforces).
 
-**Open loose end:** reply on the 0.7.7 delisting thread requesting re-review now that 0.7.9 is published — that's what restores the directory listing. Nothing else in flight. Deferred: 0.2.1 (edit-and-resend + fork-from-message); context-aware prompt templates.
+**In flight — 0.7.10 (branch `release/0.7.10`, PR pending merge/tag/publish):** hardening pass, no user-facing change. TS `strict` + `noUncheckedIndexedAccess` (~60 fixes, one real latent bug: empty `/api/embed` response now degrades to `embed-failed` instead of crashing `topK`), `ToolLoop`/`Indexer` test suites (224 tests), `docs/release-checklist.md`, repo guardrails (branch protection on `main` — PR + green CI, admins too; Dependabot; CodeQL).
+
+**Open loose end:** reply on the 0.7.7 delisting thread requesting re-review now that 0.7.9 is published — that's what restores the directory listing. Deferred: 0.2.1 (edit-and-resend + fork-from-message); context-aware prompt templates.
 
 ## Key decisions
 
@@ -67,7 +69,7 @@ Prior — **0.7.7** (2026-06-08, `7edb31e`): RAG citation disambiguation (`forma
 - Bundle embeddings into `data.json` — they belong in `index.json` (ADR-004; a 2k-note vault ≈ 120MB of floats).
 - Inject synthetic block IDs for citation precision — heading-level is the intended scope (ADR-004).
 - Mutate the doc during a rewrite preview — `Decoration.replace` keeps `state.doc` clean until Accept (ADR-005).
-- Add write tools (`create_note`/`append_to_note`/`edit_note`) without a preview-and-approve UX first (ADR-006). Pure reads only.
+- Add write tools (`create_note`/`append_to_note`/`edit_note`) without a preview-and-approve UX first (ADR-006). Pure reads only. **Trigger condition:** ADR-008's accepted-risk verdict on prompt injection is conditional on tools staying read-only and opt-in — re-run that analysis before shipping write tools *or* prompt-template variable injection.
 - Re-attempt conversation PDF export — Obsidian's command isn't programmatically reachable (dropped 0.7.1).
 - Bump `schemaVersion` for additive optional `Message` fields — `isSnapshot()` tolerates them.
 - Add `@codemirror/*` to `package.json` — runtime-provided; use `// eslint-disable-next-line import/no-extraneous-dependencies -- runtime-provided by Obsidian, externalized in esbuild`.

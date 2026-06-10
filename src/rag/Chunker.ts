@@ -49,7 +49,7 @@ function splitByHeadings(body: string): Section[] {
 			if (current.body.length > 0 || current.heading !== undefined) {
 				sections.push(current);
 			}
-			current = { heading: match[2].trim(), body: "" };
+			current = { heading: (match[2] ?? "").trim(), body: "" };
 		} else {
 			current.body += (current.body.length > 0 ? "\n" : "") + line;
 		}
