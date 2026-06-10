@@ -38,6 +38,11 @@ export class VectorStore {
 	private embedderModel = "";
 	private embeddingDim = 0;
 	private loaded = false;
+	// Per-chunk L2 norms, memoized lazily and keyed by the chunk object so
+	// entries GC away when a note is re-chunked (upsert/load build fresh
+	// IndexedChunk objects). Never serialized — index.json is unaffected.
+	// Saves recomputing √(Σ eᵢ²) for every chunk on every query.
+	private normCache: WeakMap<IndexedChunk, number> = new WeakMap();
 
 	constructor(adapter: DataAdapter, path: string) {
 		this.adapter = adapter;
@@ -179,7 +184,7 @@ export class VectorStore {
 		for (const [notePath, note] of this.notes) {
 			for (const chunk of note.chunks) {
 				if (chunk.embedding.length !== queryVec.length) continue;
-				const cn = norm(chunk.embedding);
+				const cn = this.chunkNorm(chunk);
 				if (cn === 0) continue;
 				const score = dot(queryVec, chunk.embedding) / (qn * cn);
 				hits.push({ notePath, chunk, score });
@@ -187,6 +192,14 @@ export class VectorStore {
 		}
 		hits.sort((a, b) => b.score - a.score);
 		return hits.slice(0, k);
+	}
+
+	private chunkNorm(chunk: IndexedChunk): number {
+		const hit = this.normCache.get(chunk);
+		if (hit !== undefined) return hit;
+		const n = norm(chunk.embedding);
+		this.normCache.set(chunk, n);
+		return n;
 	}
 }
 

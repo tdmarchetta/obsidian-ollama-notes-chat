@@ -2,6 +2,7 @@ import { App, MarkdownView, TFile } from "obsidian";
 import { OllamaClient } from "../ollama/OllamaClient";
 import { VectorStore } from "../rag/VectorStore";
 import { ContextMode, OllamaChatSettings } from "../settings/Settings";
+import { stripFrontmatter } from "../util/frontmatter";
 
 export type RetrievalStatus = "ok" | "empty-index" | "no-model" | "no-query" | "embed-failed";
 
@@ -107,14 +108,6 @@ async function readCleanBody(
 	return stripFrontmatter(raw);
 }
 
-function stripFrontmatter(raw: string): string {
-	if (!raw.startsWith("---")) return raw;
-	const end = raw.indexOf("\n---", 3);
-	if (end < 0) return raw;
-	const after = raw.indexOf("\n", end + 4);
-	return after < 0 ? "" : raw.slice(after + 1);
-}
-
 function formatBlock(file: TFile, body: string, label: string): string {
 	return `---\n${label}: ${file.path}\n---\n${body.trimEnd()}\n`;
 }
@@ -216,7 +209,9 @@ export function formatCitation(notePath: string, heading?: string, ambiguous = f
 	return `[[${basename}${suffix}]]`;
 }
 
-function finalize(
+// Exported for unit testing (like `formatCitation`); not part of the module's
+// intended public surface — `buildContext` is the only production caller.
+export function finalize(
 	blocks: string[],
 	contributors: TFile[],
 	source: TFile,

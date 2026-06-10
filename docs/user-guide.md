@@ -1,6 +1,6 @@
 # Ollama Notes Chat — User Guide
 
-**Version 0.7.7** · Personal-use, local-first chat with your Obsidian vault via a remote Ollama server.
+**Version 0.7.9** · Personal-use, local-first chat with your Obsidian vault via a remote Ollama server.
 
 ---
 

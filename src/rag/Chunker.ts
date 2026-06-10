@@ -1,3 +1,5 @@
+import { stripFrontmatter } from "../util/frontmatter";
+
 export interface ChunkOptions {
 	chunkSize: number;
 	overlap: number;
@@ -34,14 +36,6 @@ export function chunkMarkdown(raw: string, opts: ChunkOptions): Chunk[] {
 		}
 	}
 	return chunks;
-}
-
-function stripFrontmatter(raw: string): string {
-	if (!raw.startsWith("---")) return raw;
-	const end = raw.indexOf("\n---", 3);
-	if (end < 0) return raw;
-	const after = raw.indexOf("\n", end + 4);
-	return after < 0 ? "" : raw.slice(after + 1);
 }
 
 function splitByHeadings(body: string): Section[] {

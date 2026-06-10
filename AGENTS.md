@@ -8,80 +8,73 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## What this project is
 
-Obsidian right-sidebar plugin that chats with your notes via a remote Ollama server on the LAN. Local-first; started as a personal-use plugin and is now published in the Obsidian community plugin store — gallery submission [obsidianmd/obsidian-releases#12075](https://github.com/obsidianmd/obsidian-releases/pull/12075) was accepted on 2026-05-18, so `ollama-notes-chat` installs and auto-updates through Obsidian's in-app Community plugins browser. Detailed system design lives in [wiki/architecture.md](wiki/architecture.md); current-state dev guidance in [project.md](project.md); planned releases in [roadmap.md](roadmap.md); end-user docs in [docs/user-guide.md](docs/user-guide.md).
+Obsidian right-sidebar plugin that chats with your notes via a remote Ollama server on the LAN. Local-first; published in the Obsidian community store (id `ollama-notes-chat`, auto-updates in-app). Deeper docs: [wiki/architecture.md](wiki/architecture.md), [project.md](project.md), [roadmap.md](roadmap.md), [docs/user-guide.md](docs/user-guide.md).
 
 ## Stack & conventions
 
-- **TypeScript**, `lib: ["DOM", "ES2021"]`, CJS bundle via esbuild. Zero runtime deps in `main.js` (only `tslib` helpers); Obsidian + CodeMirror externalized at runtime.
-- **Build:** `npm run build` (= `tsc -noEmit -skipLibCheck && esbuild`). The typecheck is the correctness gate. `npm run dev` runs esbuild in watch mode (rebuilds `main.js` on save, no typecheck).
-- **Tests:** `npm test` (vitest, 90 tests over pure-logic modules; see [ADR-009](wiki/decisions/ADR-009-stability-audit-and-test-scaffold.md)); `npm run test:watch` for watch mode. Single file: `npx vitest run src/path/to/file.test.ts`. By test name: `npx vitest run -t "pattern"`. `vitest.config.ts` aliases the `obsidian` import to `test/obsidian-stub.ts` — tests run without the real Obsidian runtime, so a test needing an un-stubbed API must extend the stub first. That alias is why only pure-logic modules are covered.
+- **TypeScript**, `lib: ["DOM", "ES2021"]`, CJS bundle via esbuild. `main.js` ships zero runtime deps (only `tslib`); Obsidian + CodeMirror externalized.
+- **Build:** `npm run build` (`tsc -noEmit -skipLibCheck && esbuild`) — typecheck is the correctness gate. `npm run dev` = esbuild watch (no typecheck).
+- **Tests:** `npm test` (vitest). Single file: `npx vitest run path`; by name: `-t "pattern"`. `vitest.config.ts` aliases `obsidian` → `test/obsidian-stub.ts`, so only pure-logic modules are covered; a test needing an un-stubbed API must extend the stub first.
 - **Lint:** `npm run lint` (ESLint v9 flat + `eslint-plugin-obsidianmd/recommended` — same ruleset ObsidianReviewBot runs).
-- **CSS** scoped under `.ollama-chat-view` / `.ollama-chat-settings`. Obsidian theme variables (`--background-primary`, `--text-normal`, `--interactive-accent`) only — never hardcoded colors. Class names are flat (`.ollama-chat-history-row--active`), not BEM.
-- **Identifiers:** plugin id `ollama-notes-chat`, view type `ollama-notes-chat-view`, editor command `ollama-notes-chat:rewrite-selection`. Vault symlink folder name must match the plugin id.
-- **Compatibility:** `minAppVersion` is `1.7.2` (uses `Workspace.revealLeaf` and `setTooltip`). Desktop-only.
-- **Schemas:** persisted conversations at v2; RAG index at v1. `schemaVersion` lives in both blobs.
-- **Streaming requires CORS** on the Ollama host (`OLLAMA_ORIGINS=*` or `app://obsidian.md`). `/api/embed` and `/api/tags` use `requestUrl()` and don't need it.
+- **CSS** scoped under `.ollama-chat-view` / `.ollama-chat-settings`; Obsidian theme variables only (never hardcoded colors); flat class names, not BEM.
+- **Identifiers:** plugin id `ollama-notes-chat`, view type `ollama-notes-chat-view`, command `ollama-notes-chat:rewrite-selection`. Vault symlink folder must match the plugin id.
+- **Compatibility:** `minAppVersion` `1.7.2` (`revealLeaf`, `setTooltip`). Desktop-only.
+- **Schemas:** conversations v2, RAG index v1; `schemaVersion` lives in both blobs.
+- **Streaming needs CORS** on the Ollama host (`OLLAMA_ORIGINS=app://obsidian.md`, or `*`). `/api/embed` + `/api/tags` use `requestUrl()` and don't.
 
 ## Module map
 
-`main.ts` is the `Plugin` entry point — registers the view, ribbon icon, commands, editor-menu item, and settings tab; owns conversation persistence (`data.json`, schema-v2 migration) and the RAG vector store + indexer. From there:
+`main.ts` is the `Plugin` entry — registers view/ribbon/commands/editor-menu/settings; owns conversation persistence (`data.json`, schema-v2 migration) and the RAG vector store + indexer.
 
-- **Chat UI** — `src/view/ChatView.ts`, the sidebar `ItemView` (streaming, Markdown rendering, context-mode pill). `HistoryDrawer`, `StatsModal`, `ExportModal`, `ConfirmModal` are overlays mounted inside it.
-- **Conversations** — `src/chat/`: `Conversation.ts` (per-conversation state + auto-titling), `ConversationStore.ts` (CRUD over snapshots), `ExportConversation.ts` / `SaveAsNote.ts`, `SlashCommands.ts`.
-- **Ollama I/O** — `src/ollama/OllamaClient.ts`: `fetch`-streamed `/api/chat` (NDJSON), `requestUrl`-based `/api/embed` + `/api/tags`; parses tool calls from model output.
-- **Context** — `src/context/NoteContext.ts` builds the context block (active note / selection / one-hop linked notes / retrieved passages).
-- **RAG** — `src/rag/`: `Chunker` (heading-first), `VectorStore` (flat JSON at `index.json`, cosine top-K), `Indexer` (vault walk, mtime-diff, debounced re-embed).
-- **Rewrite** — `src/rewrite/`: `RewriteCommand` (editor command), `DiffView` (CM6 `Decoration.replace` preview), `MyersDiff`.
-- **Tools** — `src/tools/`: `ToolLoop` (opt-in tool-call loop), `VaultTools` (pure-read vault functions).
-- **TTS** — `src/tts/`: `SpeechPlayer` (`window.speechSynthesis`), `markdownToPlainText`.
-- **Settings** — `src/settings/`: `Settings.ts` (typed defaults + `mergeSettings`), `SettingsTab.ts`.
+- **Chat UI** — `src/view/ChatView.ts`, the sidebar `ItemView` (streaming, Markdown render, context-mode pill); `HistoryDrawer`/`StatsModal`/`ExportModal`/`ConfirmModal` are overlays inside it.
+- **Conversations** — `src/chat/`: `Conversation`, `ConversationStore`, `ExportConversation`/`SaveAsNote`, `SlashCommands`.
+- **Ollama I/O** — `src/ollama/OllamaClient.ts`: `fetch`-streamed `/api/chat` (NDJSON), `requestUrl` `/api/embed`+`/api/tags`; parses tool calls.
+- **Context** — `src/context/NoteContext.ts`: builds the context block (active note / selection / one-hop links / retrieved passages); `formatCitation` path-qualifies duplicate basenames.
+- **RAG** — `src/rag/`: `Chunker` (heading-first), `VectorStore` (flat JSON `index.json`, cosine top-K), `Indexer` (vault walk, mtime-diff, debounced re-embed).
+- **Rewrite** — `src/rewrite/`: `RewriteCommand`, `DiffView` (CM6 `Decoration.replace`), `MyersDiff`.
+- **Tools** — `src/tools/`: `ToolLoop` (opt-in), `VaultTools` (pure reads).
+- **TTS** — `src/tts/`: `SpeechPlayer`, `markdownToPlainText`.
+- **Settings** — `src/settings/`: `Settings.ts` (defaults + `mergeSettings`), `SettingsTab.ts`.
+- **Util** — `src/util/`: pure `obsidian`-free helpers (`frontmatter.ts`, `parseBoundedInt.ts`), unit-testable.
 
 ## Current focus
 
-**0.7.7 — citation disambiguation + tooling refresh.** Prepared but **not yet tagged** — the working tree is dirty on `main` (HEAD `241988f` = 0.7.6); version is already bumped to `0.7.7` in `manifest.json` / `package.json` / `versions.json`. Lint, typecheck, and build are green and **90 tests pass** (vitest 4). Contents:
+**Shipped — 0.7.7** (published 2026-06-08, latest release; `main` at `7edb31e`, 90 tests): RAG citation disambiguation (`formatCitation` in `NoteContext.ts`), esbuild `^0.28` + vitest `^4`, `ci.yml` (lint/test/build/audit on push+PR), package metadata, README rewrite, this `AGENTS.md` mirror. esbuild went to `^0.28` (not `^0.25`) because vitest 4 → vite 7 peer-requires `esbuild ^0.27||^0.28` — **run `npm ci`, not just `npm install`, before tagging** (`install` hides a drifted lock; `ci` is what CI enforces).
 
-- **Citation disambiguation** (`src/context/NoteContext.ts`) — the only user-facing change. When two vault notes share a basename, RAG citations are path-qualified with a display alias (`[[Work/Notes/Index#Goals|Index#Goals]]`) so they resolve to the right note; unambiguous names keep the clean `[[Note#Heading]]` form. `formatCitation()` is now exported and unit-tested (`src/context/NoteContext.test.ts`, +5 → 90 tests).
-- **Build tooling** — esbuild `^0.20` → `^0.25`, vitest `^2` → `^4` (devDependencies only; `main.js` still ships zero runtime deps). The esbuild bump now builds the *released* `main.js` in CI, so smoke-load the bundle in Obsidian before publishing.
-- **CI on every push** — `.github/workflows/ci.yml` runs lint + test + build + a prod-dep `npm audit` on pushes to `main` and PRs (complements the tag-triggered `release.yml` from 0.7.6).
-- **Misc** — `package.json` `repository`/`bugs`/`homepage`; README overhaul (community-store install first; `OLLAMA_ORIGINS` now recommends scoped `app://obsidian.md`; Screenshots section pending image capture in `assets/`); this `AGENTS.md` Codex-context mirror added.
-
-**Before tagging:** eyeball the citation feature in a vault with duplicate basenames (the integration is untested — the unit test only covers `formatCitation` in isolation), smoke-load the esbuild-0.25 bundle in Obsidian, and either capture the README screenshots or leave that section commented out. Then the per-release ritual (version bumps already done): commit → tag with the bare version (no `v`) → push the tag → review the CI-created draft release and publish it. Obsidian's updater distributes the published release with no per-release review.
-
-0.7.6 (2026-05-18) was the **first CI-built, attested release** ([ADR-010](wiki/decisions/ADR-010-ci-release-attestation.md)) — no plugin code change; `main.js` / `manifest.json` / `styles.css` shipped byte-identical to 0.7.5. `minAppVersion` is `1.7.2`.
-
-**Deferred** (was the planned 0.7.7, now unscheduled — see [roadmap.md](roadmap.md)): a code-health pass that roughly doubles the vitest suite onto `Conversation` / `SlashCommands` / `Settings` / `Chunker` / `NoteContext.finalize` and lands three behavior-preserving refactors — a shared `src/util/frontmatter.ts` (de-duping `stripFrontmatter()`), a `parseBoundedInt` helper for `SettingsTab`, and cached per-chunk vector norms in `VectorStore.topK()`. Also behind it: 0.2.1 (edit-and-resend + fork-from-message) and context-aware prompt templates.
+**In flight (uncommitted on branch `release/0.7.9`, off `7edb31e`)** — code-health pass, 203 tests, behavior/schema-preserving. Three refactors: cached per-chunk norms in `VectorStore.topK()` (memory-only `WeakMap`, no `index.json` change), shared `src/util/frontmatter.ts`, `src/util/parseBoundedInt.ts`. Plus the vitest expansion onto `Conversation`/`ConversationStore`/`SlashCommands`/`Settings`/`Chunker`/`NoteContext.finalize`/`OllamaClient.normalize` (`finalize` + `normalize` exported for testing, like `formatCitation`; suite 90→203). Also folds in the **directory-review fix** — `ConfirmModal.ts` dropped the deprecated `ButtonComponent.setWarning()` and its `eslint-disable @typescript-eslint/no-deprecated` (the store review bot forbids disabling that rule, so 0.7.7 was delisted) for `setClass("mod-warning")` (same styling, no `minAppVersion` change); publishing 0.7.9 restores the listing. Version bumped to `0.7.9` (renumbered from never-published 0.7.8) in `manifest.json`/`package.json`/`versions.json` **on the branch only** (the phantom-update rule keeps the bump off `main` until publish). Lint/typecheck/build green; full security/system audit 2026-06-09 came back clean (no findings, no code change). Next: merge + tag `0.7.9` + publish together. Deferred: 0.2.1 (edit-and-resend + fork-from-message); context-aware prompt templates.
 
 ## Key decisions
 
-- [ADR-001: Use Ollama's native /api/chat](wiki/decisions/ADR-001-native-ollama-api.md) — for the timing fields the stats modal needs.
-- [ADR-002: Streaming via fetch, not requestUrl](wiki/decisions/ADR-002-streaming-fetch.md) — `requestUrl()` buffers the body.
-- [ADR-003: Multi-conversation schema v2](wiki/decisions/ADR-003-multi-conversation-schema.md) — and the stream-switch guard that goes with it.
-- [ADR-004: RAG via flat JSON vector store](wiki/decisions/ADR-004-rag-retrieval.md) — index lives outside `data.json`.
-- [ADR-005: Rewrite-in-place via CM6 Decoration.replace](wiki/decisions/ADR-005-rewrite-in-place-diff.md) — doc stays clean until Accept.
-- [ADR-006: Tool use via native Ollama tools protocol](wiki/decisions/ADR-006-tool-use.md) — pure reads only for now.
-- [ADR-007: Pre-GitHub security hardening pass](wiki/decisions/ADR-007-security-hardening.md).
-- [ADR-008: External security audit review — no code change](wiki/decisions/ADR-008-security-audit-review.md).
-- [ADR-009: Stability audit + vitest scaffold](wiki/decisions/ADR-009-stability-audit-and-test-scaffold.md).
-- [ADR-010: CI-built releases with artifact attestation](wiki/decisions/ADR-010-ci-release-attestation.md) — release build + provenance moved into GitHub Actions.
+- [ADR-001](wiki/decisions/ADR-001-native-ollama-api.md): native `/api/chat` — for the stats-modal timing fields.
+- [ADR-002](wiki/decisions/ADR-002-streaming-fetch.md): stream via `fetch`, not `requestUrl` (which buffers the body).
+- [ADR-003](wiki/decisions/ADR-003-multi-conversation-schema.md): multi-conversation schema v2 + stream-switch guard.
+- [ADR-004](wiki/decisions/ADR-004-rag-retrieval.md): RAG via flat JSON vector store, outside `data.json`.
+- [ADR-005](wiki/decisions/ADR-005-rewrite-in-place-diff.md): rewrite-in-place via CM6 `Decoration.replace`.
+- [ADR-006](wiki/decisions/ADR-006-tool-use.md): tool use via native Ollama protocol — pure reads only.
+- [ADR-007](wiki/decisions/ADR-007-security-hardening.md): pre-GitHub security hardening.
+- [ADR-008](wiki/decisions/ADR-008-security-audit-review.md): external audit review — no code change.
+- [ADR-009](wiki/decisions/ADR-009-stability-audit-and-test-scaffold.md): stability audit + vitest scaffold.
+- [ADR-010](wiki/decisions/ADR-010-ci-release-attestation.md): CI-built releases with provenance attestation.
 
 ## Do not
 
-- Switch the chat endpoint back to OpenAI-compatible without a stats story (ADR-001).
-- Move the streaming call from `fetch` to `requestUrl()` — kills live-token UX (ADR-002).
-- Remove `ChatView`'s stream-switch guard without rewriting `appendToLast` to bind to a captured conv reference; tokens land in the wrong conversation (ADR-003). The same hazard covers the gaps *between* tool-loop iterations (ADR-006).
-- Bundle embeddings into `data.json` — they belong in `index.json` (ADR-004). A 2k-note vault is ~120MB of floats.
-- Inject synthetic block IDs into user notes for citation precision — heading-level is the intentional scope (ADR-004).
-- Mutate the document during a rewrite preview; `Decoration.replace` keeps `state.doc` clean until Accept (ADR-005).
-- Add write tools (`create_note`, `append_to_note`, `edit_note`) without designing a preview-and-approve UX first (ADR-006). Pure reads only until then.
-- Re-attempt PDF export of conversations — Obsidian's "export to PDF" command isn't programmatically reachable; investigated and dropped for 0.7.1.
-- Bump `schemaVersion` for additive optional fields on `Message`; `isSnapshot()` already tolerates them.
-- Add `@codemirror/view` / `@codemirror/state` to `package.json` — Obsidian provides them at runtime; use `// eslint-disable-next-line import/no-extraneous-dependencies -- runtime-provided by Obsidian, externalized in esbuild` instead.
-- Omit the `-- reason` description on any `eslint-disable` directive. The `obsidianmd/no-undescribed-eslint-disable` rule (which the gallery review bot runs) flags bare disables as errors.
-- Reach for `globalThis`, bare `document`, bare timer functions, or `document.createElement` in plugin code. Use `activeDocument` for document references, `window.setTimeout` / `window.setInterval` / `window.requestAnimationFrame` for timers (the Obsidian rule wants `window.` for timer functions specifically — not `activeWindow.`), and the `createEl` / `createSpan` / `createDiv` helpers for element creation. The global `crypto.randomUUID` is fine without prefix.
-- Add runtime npm deps. esbuild externalizes everything beyond `tslib` helpers.
-- Commit `data.json`, `index.json`, `main.js`, `CLAUDE.md`, `project.md`, `roadmap.md`, `dependencies.md`, `changelog.md`, `raw/`, or `wiki/` — all gitignored as local context. (`AGENTS.md` itself is currently tracked, not gitignored.)
-- Edit this file's shared sections without mirroring the change into `CLAUDE.md` — it is the gitignored Claude-facing copy of the same context, so the two drift apart if only one is updated.
-- Loosen the URL scheme allow-list, NDJSON 8 MB buffer cap, prototype-pollution defense, path-traversal defenses, YAML / wikilink escape, vector-index validation, or `noopener,noreferrer` on `window.open` (ADR-007). Note: `sanitizeArgs` now applies pollution filtering at every depth, not just top-level (ADR-009 V6).
-- Re-mitigate the LLM-tool-execution / prompt-injection audit findings; both were analyzed and accepted as not posing real risk under this plugin's threat model. The actual defenses (opt-in tool loop, visible chips, per-note disable, path sanitization, iteration cap) are already load-bearing (ADR-008).
-- Re-flag the audit findings already investigated and rejected: percent-encoded path traversal, `topK()` ↔ `Indexer.upsert()` race, rewrite double-invocation race, `schemaVersion` type-coercion bypass, `appendToLast` wrong-reference (ADR-009).
-- Build or upload release assets by hand — `.github/workflows/release.yml` is the only path that produces attested artifacts; a manually-built `main.js` ships without provenance (ADR-010).
+- Switch the chat endpoint to OpenAI-compatible without a stats story (ADR-001).
+- Move streaming from `fetch` to `requestUrl()` — kills live tokens (ADR-002).
+- Remove `ChatView`'s stream-switch guard unless `appendToLast` binds to a captured conv ref — tokens land in the wrong conversation (ADR-003; same hazard between tool-loop iterations, ADR-006).
+- Bundle embeddings into `data.json` — they belong in `index.json` (ADR-004; a 2k-note vault ≈ 120MB of floats).
+- Inject synthetic block IDs for citation precision — heading-level is the intended scope (ADR-004).
+- Mutate the doc during a rewrite preview — `Decoration.replace` keeps `state.doc` clean until Accept (ADR-005).
+- Add write tools (`create_note`/`append_to_note`/`edit_note`) without a preview-and-approve UX first (ADR-006). Pure reads only.
+- Re-attempt conversation PDF export — Obsidian's command isn't programmatically reachable (dropped 0.7.1).
+- Bump `schemaVersion` for additive optional `Message` fields — `isSnapshot()` tolerates them.
+- Add `@codemirror/*` to `package.json` — runtime-provided; use `// eslint-disable-next-line import/no-extraneous-dependencies -- runtime-provided by Obsidian, externalized in esbuild`.
+- Write a bare `eslint-disable` — always add `-- reason` (`obsidianmd/no-undescribed-eslint-disable` errors otherwise).
+- **Disable `@typescript-eslint/no-deprecated`** — the community-directory review bot rejects it outright (it delisted 0.7.7 for exactly this). Fix the deprecation instead: e.g. `ButtonComponent.setWarning()` → `.setClass("mod-warning")` (since 0.9.7); don't reach for `setDestructive()` (1.13.0 > `minAppVersion` 1.7.2). Local lint is type-aware (`parserOptions.project`), so it catches deprecated calls — never silence them.
+- Use `globalThis` / bare `document` / bare timers / `document.createElement`. Use `activeDocument`, `window.setTimeout|setInterval|requestAnimationFrame` (the rule wants `window.`, not `activeWindow.`), and `createEl`/`createSpan`/`createDiv`. `crypto.randomUUID` is fine bare.
+- Add runtime npm deps — esbuild externalizes everything beyond `tslib`.
+- Commit `data.json`, `index.json`, `main.js`, `CLAUDE.md`, `project.md`, `roadmap.md`, `dependencies.md`, `changelog.md`, `raw/`, `wiki/` — gitignored local context (`AGENTS.md` itself is tracked).
+- Edit a shared section here without mirroring into `CLAUDE.md` (the gitignored Claude copy; `AGENTS.md` is committed).
+- Loosen ADR-007 defenses: URL-scheme allow-list, NDJSON 8 MB cap, prototype-pollution filter (applied at every depth — ADR-009 V6), path-traversal defenses, YAML/wikilink escape, vector-index validation, `noopener,noreferrer` on `window.open`.
+- Re-litigate accepted audit findings: LLM-tool-execution / prompt-injection (defenses are load-bearing — ADR-008); percent-encoded traversal, `topK()`↔`Indexer.upsert()` race, rewrite double-invocation, `schemaVersion` coercion, `appendToLast` wrong-ref (ADR-009).
+- Build/upload release assets by hand — `release.yml` is the only attested path (ADR-010).
+- **Land a `manifest.json`/`versions.json` version bump on `main` before that version's release is published.** Obsidian reads the branch manifest and shows a phantom, undownloadable update ("manifest points at X but no release published"). Bump on a branch; merge + tag + publish together. A draft doesn't count as published.

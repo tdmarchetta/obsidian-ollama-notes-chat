@@ -33,8 +33,10 @@ export class ConfirmModal extends Modal {
 			.addButton((b) =>
 				b
 					.setButtonText(this.confirmLabel)
-					// eslint-disable-next-line @typescript-eslint/no-deprecated -- setWarning() retained for minAppVersion 1.7.2 compatibility; setDestructive() is a newer API
-					.setWarning()
+					// `mod-warning` is the class the deprecated ButtonComponent.setWarning() added;
+					// setClass() (non-deprecated, since 0.9.7) keeps the destructive styling without
+					// needing setDestructive(), which only exists since 1.13.0 (> minAppVersion 1.7.2).
+					.setClass("mod-warning")
 					.onClick(() => {
 						this.decided = true;
 						this.resolver(true);
