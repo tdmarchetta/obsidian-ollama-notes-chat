@@ -16,6 +16,7 @@ Obsidian right-sidebar plugin that chats with your notes via a remote Ollama ser
 - **Build:** `npm run build` (`tsc -noEmit -skipLibCheck && esbuild`) — typecheck is the correctness gate. `npm run dev` = esbuild watch (no typecheck).
 - **Tests:** `npm test` (vitest). Single file: `npx vitest run path`; by name: `-t "pattern"`. `vitest.config.ts` aliases `obsidian` → `test/obsidian-stub.ts`, so only pure-logic modules are covered; a test needing an un-stubbed API must extend the stub first.
 - **Lint:** `npm run lint` (ESLint v9 flat + `eslint-plugin-obsidianmd/recommended` — same ruleset ObsidianReviewBot runs).
+- **Repo guardrails (since 2026-06-10):** `main` is branch-protected — PR with green `CI / check` required, **admins included**, so even doc-only changes go through a PR (no direct pushes). Dependabot alerts + weekly npm/actions bump PRs (`.github/dependabot.yml`); CodeQL default setup scans push/PR.
 - **CSS** scoped under `.ollama-chat-view` / `.ollama-chat-settings`; Obsidian theme variables only (never hardcoded colors); flat class names, not BEM.
 - **Identifiers:** plugin id `ollama-notes-chat`, view type `ollama-notes-chat-view`, command `ollama-notes-chat:rewrite-selection`. Vault symlink folder must match the plugin id.
 - **Compatibility:** `minAppVersion` `1.7.2` (`revealLeaf`, `setTooltip`). Desktop-only.

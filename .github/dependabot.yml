@@ -1,0 +1,15 @@
+# Weekly dependency bumps. Runtime supply chain is near-zero (only tslib);
+# what this really guards is the build chain (esbuild/vitest/eslint) that
+# produces the attested main.js, plus the pinned action SHAs in workflows.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
