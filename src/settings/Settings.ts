@@ -1,4 +1,4 @@
-export type ContextMode = "none" | "current-note" | "current-selection" | "linked-notes" | "retrieval";
+export type ContextMode = "none" | "current-note" | "current-selection" | "linked-notes" | "current-folder" | "retrieval";
 
 export type FontSize = "inherit" | "small" | "medium" | "large";
 

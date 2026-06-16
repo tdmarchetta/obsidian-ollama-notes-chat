@@ -253,6 +253,7 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 					.addOption("current-note", "Current note")
 					.addOption("current-selection", "Current selection")
 					.addOption("linked-notes", "Current + linked notes")
+					.addOption("current-folder", "Current folder")
 					.addOption("retrieval", "Retrieved passages")
 					.setValue(this.plugin.settings.defaultContextMode)
 					.onChange(async (v) => {

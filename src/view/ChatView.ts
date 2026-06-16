@@ -28,6 +28,7 @@ const CONTEXT_MODE_ORDER: ContextMode[] = [
 	"current-note",
 	"current-selection",
 	"linked-notes",
+	"current-folder",
 	"retrieval",
 	"none",
 ];
@@ -37,6 +38,7 @@ const CONTEXT_MODE_LABEL: Record<ContextMode, string> = {
 	"current-note": "Current note",
 	"current-selection": "Current selection",
 	"linked-notes": "Current + linked notes",
+	"current-folder": "Current folder",
 	retrieval: "Retrieved passages",
 };
 
@@ -545,6 +547,9 @@ export class ChatView extends ItemView {
 			case "retrieval":
 				placeholder = "Ask your vault…";
 				break;
+			case "current-folder":
+				placeholder = "Ask about this folder…";
+				break;
 			default:
 				placeholder = "Ask about this note…";
 		}
@@ -653,6 +658,12 @@ export class ChatView extends ItemView {
 			} else if (ctx.retrievalStatus === "embed-failed") {
 				new Notice("Embedding failed — check your server is reachable.", 5000);
 			}
+		}
+		if (this.contextMode === "current-folder" && ctx.truncated) {
+			new Notice(
+				`Folder too large — context truncated to ${settings.truncationLimit.toLocaleString()} characters.`,
+				5000,
+			);
 		}
 		const sourcePath = ctx.sourceNote?.path;
 
