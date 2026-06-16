@@ -185,6 +185,7 @@ export class Indexer {
 		for (let i = 0; i < toIndex.length; i++) {
 			if (this.cancelled) break;
 			const file = toIndex[i];
+			if (!file) continue;
 			this.emit({ phase: "embedding", indexed, total, currentPath: file.path });
 			try {
 				await this.embedAndStore(file);
@@ -223,11 +224,12 @@ export class Indexer {
 				batch.map((c) => c.text),
 			);
 			for (let j = 0; j < batch.length; j++) {
+				const chunk = batch[j];
 				const embedding = embeddings[j];
-				if (!Array.isArray(embedding)) continue;
+				if (!chunk || !Array.isArray(embedding)) continue;
 				indexed.push({
-					heading: batch[j].heading,
-					text: batch[j].text,
+					heading: chunk.heading,
+					text: chunk.text,
 					embedding,
 				});
 			}
@@ -237,8 +239,9 @@ export class Indexer {
 			this.store.remove(file.path);
 			return;
 		}
-		if (this.store.getEmbeddingDim() === 0) {
-			this.store.setEmbedderModel(this.settings.embedderModel, indexed[0].embedding.length);
+		const firstIndexed = indexed[0];
+		if (firstIndexed && this.store.getEmbeddingDim() === 0) {
+			this.store.setEmbedderModel(this.settings.embedderModel, firstIndexed.embedding.length);
 		}
 		this.store.upsert(file.path, indexed, file.stat.mtime);
 	}

@@ -215,14 +215,19 @@ function isValidIndexedChunk(x: unknown): x is IndexedChunk {
 	return true;
 }
 
+// The `?? 0` fallbacks never fire — callers pre-check equal lengths and loops
+// stay in-bounds — they only satisfy noUncheckedIndexedAccess.
 function dot(a: number[], b: number[]): number {
 	let s = 0;
-	for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+	for (let i = 0; i < a.length; i++) s += (a[i] ?? 0) * (b[i] ?? 0);
 	return s;
 }
 
 function norm(a: number[]): number {
 	let s = 0;
-	for (let i = 0; i < a.length; i++) s += a[i] * a[i];
+	for (let i = 0; i < a.length; i++) {
+		const x = a[i] ?? 0;
+		s += x * x;
+	}
 	return Math.sqrt(s);
 }

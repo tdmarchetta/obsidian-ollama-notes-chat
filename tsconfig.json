@@ -6,11 +6,11 @@
     "module": "ESNext",
     "target": "ES2020",
     "allowJs": true,
-    "noImplicitAny": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
     "moduleResolution": "node",
     "importHelpers": true,
     "isolatedModules": true,
-    "strictNullChecks": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "lib": ["DOM", "ES2021"]

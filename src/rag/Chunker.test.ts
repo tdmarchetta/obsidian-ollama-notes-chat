@@ -13,7 +13,7 @@ describe("chunkMarkdown", () => {
 	it("strips leading frontmatter before chunking", () => {
 		const chunks = chunkMarkdown("---\ntitle: T\n---\nBody text", opts(800, 100));
 		expect(chunks).toHaveLength(1);
-		expect(chunks[0].text).toBe("Body text");
+		expect(chunks[0]!.text).toBe("Body text");
 	});
 
 	it("splits into sections by H1–H3 headings", () => {
@@ -32,14 +32,14 @@ describe("chunkMarkdown", () => {
 	});
 
 	it("strips ATX closing hashes from headings", () => {
-		expect(chunkMarkdown("## Title ##\ntext", opts(800, 100))[0].heading).toBe("Title");
+		expect(chunkMarkdown("## Title ##\ntext", opts(800, 100))[0]!.heading).toBe("Title");
 	});
 
 	it("does not treat H4+ as a heading", () => {
 		const chunks = chunkMarkdown("#### Not a heading\ntext", opts(800, 100));
 		expect(chunks).toHaveLength(1);
-		expect(chunks[0].heading).toBeUndefined();
-		expect(chunks[0].text).toBe("#### Not a heading\ntext");
+		expect(chunks[0]!.heading).toBeUndefined();
+		expect(chunks[0]!.text).toBe("#### Not a heading\ntext");
 	});
 
 	it("skips heading-only sections with no body", () => {

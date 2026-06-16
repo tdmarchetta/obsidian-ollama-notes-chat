@@ -12,9 +12,9 @@ Obsidian right-sidebar plugin that chats with your notes via a remote Ollama ser
 
 ## Stack & conventions
 
-- **TypeScript**, `lib: ["DOM", "ES2021"]`, CJS bundle via esbuild. `main.js` ships zero runtime deps (only `tslib`); Obsidian + CodeMirror externalized.
+- **TypeScript (strict)**, `lib: ["DOM", "ES2021"]`, CJS bundle via esbuild. `main.js` ships zero runtime deps (only `tslib`); Obsidian + CodeMirror externalized. `tsconfig` has `strict: true` + `noUncheckedIndexedAccess` (since 0.7.10) — don't weaken the flags. Index-access convention: in production code, guard or use a `??` fallback with a brief comment when the access is in-bounds by invariant; bare `!` assertions are fine in tests.
 - **Build:** `npm run build` (`tsc -noEmit -skipLibCheck && esbuild`) — typecheck is the correctness gate. `npm run dev` = esbuild watch (no typecheck).
-- **Tests:** `npm test` (vitest). Single file: `npx vitest run path`; by name: `-t "pattern"`. `vitest.config.ts` aliases `obsidian` → `test/obsidian-stub.ts`, so only pure-logic modules are covered; a test needing an un-stubbed API must extend the stub first.
+- **Tests:** `npm test` (vitest). Single file: `npx vitest run path`; by name: `-t "pattern"`. `vitest.config.ts` aliases `obsidian` → `test/obsidian-stub.ts`, so only pure-logic modules are covered; a test needing an un-stubbed API must extend the stub first. Code using `window.*` timers needs `vi.stubGlobal("window", …)` — `Indexer.test.ts` shows the pattern (incl. fake-timer debounce tests).
 - **Lint:** `npm run lint` (ESLint v9 flat + `eslint-plugin-obsidianmd/recommended` — same ruleset ObsidianReviewBot runs).
 - **Repo guardrails (since 2026-06-10):** `main` is branch-protected — PR with green `CI / check` required, **admins included**, so even doc-only changes go through a PR (no direct pushes). Dependabot alerts + weekly npm/actions bump PRs (`.github/dependabot.yml`); CodeQL default setup scans push/PR.
 - **CSS** scoped under `.ollama-chat-view` / `.ollama-chat-settings`; Obsidian theme variables only (never hardcoded colors); flat class names, not BEM.
@@ -44,7 +44,9 @@ Obsidian right-sidebar plugin that chats with your notes via a remote Ollama ser
 
 Prior — **0.7.7** (2026-06-08, `7edb31e`): RAG citation disambiguation (`formatCitation` in `NoteContext.ts`), esbuild `^0.28` + vitest `^4`, `ci.yml` (lint/test/build/audit on push+PR), package metadata, README rewrite, this `AGENTS.md` mirror. esbuild went to `^0.28` (not `^0.25`) because vitest 4 → vite 7 peer-requires `esbuild ^0.27||^0.28` — **run `npm ci`, not just `npm install`, before tagging** (`install` hides a drifted lock; `ci` is what CI enforces).
 
-**Open loose end:** reply on the 0.7.7 delisting thread requesting re-review now that 0.7.9 is published — that's what restores the directory listing. Nothing else in flight. Deferred: 0.2.1 (edit-and-resend + fork-from-message); context-aware prompt templates.
+**In flight — 0.7.10 (branch `release/0.7.10`, PR pending merge/tag/publish):** hardening pass, no user-facing change. TS `strict` + `noUncheckedIndexedAccess` (~60 fixes, one real latent bug: empty `/api/embed` response now degrades to `embed-failed` instead of crashing `topK`), `ToolLoop`/`Indexer` test suites (224 tests), `docs/release-checklist.md`, repo guardrails (branch protection on `main` — PR + green CI, admins too; Dependabot; CodeQL).
+
+**Open loose end:** reply on the 0.7.7 delisting thread requesting re-review now that 0.7.9 is published — that's what restores the directory listing. Deferred: 0.2.1 (edit-and-resend + fork-from-message); context-aware prompt templates.
 
 ## Key decisions
 
@@ -67,7 +69,7 @@ Prior — **0.7.7** (2026-06-08, `7edb31e`): RAG citation disambiguation (`forma
 - Bundle embeddings into `data.json` — they belong in `index.json` (ADR-004; a 2k-note vault ≈ 120MB of floats).
 - Inject synthetic block IDs for citation precision — heading-level is the intended scope (ADR-004).
 - Mutate the doc during a rewrite preview — `Decoration.replace` keeps `state.doc` clean until Accept (ADR-005).
-- Add write tools (`create_note`/`append_to_note`/`edit_note`) without a preview-and-approve UX first (ADR-006). Pure reads only.
+- Add write tools (`create_note`/`append_to_note`/`edit_note`) without a preview-and-approve UX first (ADR-006). Pure reads only. **Trigger condition:** ADR-008's accepted-risk verdict on prompt injection is conditional on tools staying read-only and opt-in — re-run that analysis before shipping write tools *or* prompt-template variable injection.
 - Re-attempt conversation PDF export — Obsidian's command isn't programmatically reachable (dropped 0.7.1).
 - Bump `schemaVersion` for additive optional `Message` fields — `isSnapshot()` tolerates them.
 - Add `@codemirror/*` to `package.json` — runtime-provided; use `// eslint-disable-next-line import/no-extraneous-dependencies -- runtime-provided by Obsidian, externalized in esbuild`.
@@ -80,4 +82,4 @@ Prior — **0.7.7** (2026-06-08, `7edb31e`): RAG citation disambiguation (`forma
 - Loosen ADR-007 defenses: URL-scheme allow-list, NDJSON 8 MB cap, prototype-pollution filter (applied at every depth — ADR-009 V6), path-traversal defenses, YAML/wikilink escape, vector-index validation, `noopener,noreferrer` on `window.open`.
 - Re-litigate accepted audit findings: LLM-tool-execution / prompt-injection (defenses are load-bearing — ADR-008); percent-encoded traversal, `topK()`↔`Indexer.upsert()` race, rewrite double-invocation, `schemaVersion` coercion, `appendToLast` wrong-ref (ADR-009).
 - Build/upload release assets by hand — `release.yml` is the only attested path (ADR-010).
-- **Land a `manifest.json`/`versions.json` version bump on `main` before that version's release is published.** Obsidian reads the branch manifest and shows a phantom, undownloadable update ("manifest points at X but no release published"). Bump on a branch; merge + tag + publish together. A draft doesn't count as published.
+- **Land a `manifest.json`/`versions.json` version bump on `main` before that version's release is published.** Obsidian reads the branch manifest and shows a phantom, undownloadable update ("manifest points at X but no release published"). Bump on a branch; merge + tag + publish together. A draft doesn't count as published. Full per-release ritual (gates + manual smoke list + ship sequence): [docs/release-checklist.md](docs/release-checklist.md). The lockfile's two root `version` fields must match the bump (`npm ci` fails otherwise).
