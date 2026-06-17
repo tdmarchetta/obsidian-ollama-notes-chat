@@ -141,7 +141,6 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				s
 					.setLimits(0, 1.5, 0.1)
 					.setValue(this.plugin.settings.temperature)
-					.setDynamicTooltip()
 					.onChange(async (v) => {
 						this.plugin.settings.temperature = v;
 						await this.plugin.saveSettings();
@@ -199,7 +198,6 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				s
 					.setLimits(2, 10, 1)
 					.setValue(this.plugin.settings.toolsMaxIterations)
-					.setDynamicTooltip()
 					.onChange(async (v) => {
 						this.plugin.settings.toolsMaxIterations = v;
 						await this.plugin.saveSettings();
@@ -234,7 +232,6 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				s
 					.setLimits(0, 1.5, 0.1)
 					.setValue(this.plugin.settings.rewriteTemperature)
-					.setDynamicTooltip()
 					.onChange(async (v) => {
 						this.plugin.settings.rewriteTemperature = v;
 						await this.plugin.saveSettings();
@@ -323,7 +320,6 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 				s
 					.setLimits(1, 15, 1)
 					.setValue(this.plugin.settings.ragTopK)
-					.setDynamicTooltip()
 					.onChange(async (v) => {
 						this.plugin.settings.ragTopK = v;
 						await this.plugin.saveSettings();
