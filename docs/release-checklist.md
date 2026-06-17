@@ -30,7 +30,7 @@ Load the built plugin (symlinked vault, `Cmd+R` after build):
 
 ## Ship sequence (merge + tag + publish together — no phantom window)
 
-1. PR into `main`, CI green, merge
+1. PR into `main` — **verify the base is `main`, not the parent `release/*`** (`gh pr view N --json baseRefName`): release branches are stacked, so a release PR auto-targets the branch it was cut from (0.7.11's first PR mis-merged into `release/0.7.10`). CI green, merge, then confirm `main`'s manifest actually updated.
 2. `git tag X.Y.Z && git push origin X.Y.Z` (bare version, no `v`)
 3. `release.yml` builds, attests, opens a **draft** release — verify the three assets (`main.js`, `manifest.json`, `styles.css`)
 4. **Publish the draft promptly** — the manifest bump is now on `main`, so an unpublished draft shows users a phantom update
