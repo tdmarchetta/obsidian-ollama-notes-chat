@@ -1,6 +1,13 @@
 node_modules/
 main.js
 main.js.map
+
+# Stray tsc emit — esbuild bundles from .ts; tsc is typecheck-only
+src/**/*.js
+src/**/*.js.map
+test/**/*.js
+test/**/*.js.map
+vitest.config.js
 .DS_Store
 *.log
 data.json
