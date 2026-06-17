@@ -1,4 +1,4 @@
-import { App, MarkdownView, TFile } from "obsidian";
+import { App, MarkdownView, TFile, TFolder } from "obsidian";
 import { OllamaClient } from "../ollama/OllamaClient";
 import { VectorStore } from "../rag/VectorStore";
 import { ContextMode, OllamaChatSettings } from "../settings/Settings";
@@ -57,6 +57,21 @@ export async function buildContext(
 
 	if (mode === "current-note" || mode === "current-selection") {
 		return finalize([activeBlock], [active], active, settings.truncationLimit);
+	}
+
+	if (mode === "current-folder") {
+		const blocks = [activeBlock];
+		const contributors: TFile[] = [active];
+		// `collectFolderNotes` lists the active note first; it's already in
+		// `activeBlock`, so skip it here and append the rest of the folder.
+		for (const file of collectFolderNotes(active, { recursive: true })) {
+			if (file.path === active.path) continue;
+			const body = await readCleanBody(app, file, settings.includeFrontmatter);
+			if (body.trim().length === 0) continue;
+			blocks.push(formatBlock(file, body, "folder note"));
+			contributors.push(file);
+		}
+		return finalize(blocks, contributors, active, settings.truncationLimit);
 	}
 
 	// linked-notes: add one-hop linked notes
@@ -128,6 +143,35 @@ function resolveLinkedNotes(app: App, file: TFile): TFile[] {
 	return out;
 }
 
+export interface CollectFolderOpts {
+	recursive: boolean;
+}
+
+// Exported for unit testing (like `finalize`/`formatCitation`). Returns the
+// active note first — so it always survives downstream truncation in
+// `finalize` — followed by the other markdown notes in its folder, sorted by
+// path. With `recursive`, descends into every subfolder; dedups by path.
+export function collectFolderNotes(active: TFile, opts: CollectFolderOpts): TFile[] {
+	const folder = active.parent;
+	if (!folder) return [active];
+	const others: TFile[] = [];
+	const seen = new Set<string>([active.path]);
+	const walk = (dir: TFolder): void => {
+		for (const child of dir.children) {
+			if (child instanceof TFolder) {
+				if (opts.recursive) walk(child);
+			} else if (child instanceof TFile && child.extension === "md") {
+				if (seen.has(child.path)) continue;
+				seen.add(child.path);
+				others.push(child);
+			}
+		}
+	};
+	walk(folder);
+	others.sort((a, b) => a.path.localeCompare(b.path));
+	return [active, ...others];
+}
+
 async function buildRetrievalContext(
 	app: App,
 	settings: OllamaChatSettings,
@@ -152,7 +196,11 @@ async function buildRetrievalContext(
 	let queryVec: number[];
 	try {
 		const result = await deps.ollama.embed(settings.embedderModel, query);
-		queryVec = result[0];
+		const first = result[0];
+		// An empty embeddings array previously slipped through as `undefined`
+		// and crashed in topK(); treat it as a failed embed instead.
+		if (!first) return { ...base, retrievalStatus: "embed-failed" };
+		queryVec = first;
 	} catch (err) {
 		console.warn("[ollama-notes-chat] query embed failed", err);
 		return { ...base, retrievalStatus: "embed-failed" };

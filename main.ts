@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Menu, Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
+import { Editor, Menu, Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { OllamaClient } from "./src/ollama/OllamaClient";
 import { ChatView, VIEW_TYPE_CHAT } from "./src/view/ChatView";
 import { OllamaChatSettings, mergeSettings } from "./src/settings/Settings";
@@ -120,7 +120,7 @@ export default class OllamaChatPlugin extends Plugin {
 		});
 
 		this.registerEvent(
-			this.app.workspace.on("editor-menu", (menu: Menu, editor: Editor, _view: MarkdownView) => {
+			this.app.workspace.on("editor-menu", (menu: Menu, editor: Editor) => {
 				const selection = editor.getSelection();
 				if (!selection) return;
 				menu.addItem((item) =>

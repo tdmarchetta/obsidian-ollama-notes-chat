@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Notice } from "obsidian";
+import { Editor, MarkdownView, Notice, type MarkdownFileInfo } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import type OllamaChatPlugin from "../../main";
 import { getPerNoteOverride } from "../context/NoteContext";
@@ -21,8 +21,11 @@ export function registerRewriteCommand(plugin: OllamaChatPlugin): void {
 	plugin.addCommand({
 		id: "rewrite-selection",
 		name: "Rewrite selection",
-		editorCallback: (editor: Editor, view: MarkdownView) => {
-			void runRewrite(plugin, editor, view);
+		editorCallback: (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
+			// strictFunctionTypes: the API may hand us a bare MarkdownFileInfo
+			// (e.g. an embedded editor); the rewrite UX needs a full view.
+			if (!(ctx instanceof MarkdownView)) return;
+			void runRewrite(plugin, editor, ctx);
 		},
 	});
 }
@@ -167,5 +170,5 @@ function getCm(editor: Editor): EditorView | null {
 export function stripFences(s: string): string {
 	const out = s.trim();
 	const m = /^(```|~~~)[a-zA-Z0-9_-]*\n([\s\S]*?)\n\1$/.exec(out);
-	return m ? m[2] : out;
+	return m ? (m[2] ?? "") : out;
 }

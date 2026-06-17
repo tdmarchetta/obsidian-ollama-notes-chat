@@ -226,7 +226,7 @@ export class HistoryDrawer {
 function firstUserPreview(row: ConversationSnapshot): string | null {
 	const first = row.messages.find((m) => m.role === "user");
 	if (!first) return null;
-	let text = first.content.trim().split("\n")[0];
+	let text = first.content.trim().split("\n")[0] ?? "";
 	if (text.length === 0) return null;
 	if (text.length > 80) text = text.slice(0, 80).trimEnd() + "…";
 	return `"${text}"`;

@@ -34,8 +34,14 @@ export function markdownToPlainText(md: string): string {
 	s = s.replace(/^\s*[-*+]\s+/gm, "");
 	s = s.replace(/^\s*\d+\.\s+/gm, "");
 
-	// HTML tags — strip but keep inner text.
-	s = s.replace(/<[^>]+>/g, "");
+	// HTML tags — strip but keep inner text. Loop to a fixpoint: a single
+	// global replace does one left-to-right scan and won't re-examine text
+	// joined across a removed span, so re-run until the string stops changing.
+	let prev: string;
+	do {
+		prev = s;
+		s = s.replace(/<[^>]+>/g, "");
+	} while (s !== prev);
 
 	// Collapse runs of blank lines.
 	s = s.replace(/\n{3,}/g, "\n\n");
