@@ -48,7 +48,7 @@ Prior — **0.7.9** (2026-06-10, `bcb9afd`): code-health pass + store-listing fi
 
 Prior — **0.7.7** (2026-06-08, `7edb31e`): RAG citation disambiguation (`formatCitation` in `NoteContext.ts`), esbuild `^0.28` + vitest `^4`, `ci.yml` (lint/test/build/audit on push+PR), package metadata, README rewrite, this `AGENTS.md` mirror. esbuild went to `^0.28` (not `^0.25`) because vitest 4 → vite 7 peer-requires `esbuild ^0.27||^0.28` — **run `npm ci`, not just `npm install`, before tagging** (`install` hides a drifted lock; `ci` is what CI enforces).
 
-**Open loose end:** reply on the 0.7.7 delisting thread requesting re-review now that 0.7.12 is published — that's what restores the directory listing. Deferred: 0.2.1 (edit-and-resend + fork-from-message); context-aware prompt templates.
+**Directory status (verified 2026-06-18):** listed in `obsidian-releases`/`community-plugins.json` (id `ollama-notes-chat`), not in any removed list — **no active delisting**. The 0.7.7 `eslint-disable @typescript-eslint/no-deprecated` worry was fixed in 0.7.9 and is clean through 0.7.12; the entry just carries Obsidian's boilerplate `- This plugin has not been manually reviewed by Obsidian staff.` disclaimer that ~46% of the directory (2256/4865) shares — benign, removable only via an optional manual staff review. `obsidian-releases` now has PRs disabled; submissions/review go through the `community.obsidian.md` dashboard, so there is no thread to chase. Deferred: 0.2.1 (edit-and-resend + fork-from-message); context-aware prompt templates.
 
 ## Key decisions
 
