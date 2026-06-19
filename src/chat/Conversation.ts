@@ -1,5 +1,6 @@
 import { ContextMode } from "../settings/Settings";
 import type { ChatStats } from "../ollama/OllamaClient";
+import { noteBasename } from "../util/noteBasename";
 
 export type Role = "user" | "assistant" | "system" | "tool";
 
@@ -174,15 +175,25 @@ export function newId(): string {
 export function deriveAutoTitle(messages: Message[]): string | null {
 	const firstUser = messages.find((m) => m.role === "user");
 	if (!firstUser) return null;
-	let text = firstUser.content.trim();
-	if (text.length === 0) return null;
-	// Strip a leading slash command (e.g. "/summarize ") so chats aren't all titled "/summarize…".
-	const stripped = text.replace(/^\/\w+(\s+|$)/, "").trim();
-	if (stripped.length > 0) text = stripped;
-	text = (text.split("\n")[0] ?? "").trim();
-	if (text.length === 0) return null;
-	if (text.length > 40) text = text.slice(0, 40).trimEnd() + "…";
-	return text;
+	// Prefer meaningful text the user typed: strip a leading slash command
+	// (e.g. "/summarize ") and keep the first line only.
+	const typed = (firstUser.content
+		.trim()
+		.replace(/^\/\w+(\s+|$)/, "")
+		.trim()
+		.split("\n")[0] ?? "").trim();
+	if (typed.length > 0) return truncateTitle(typed);
+	// A bare "/summarize" (or empty input) leaves nothing — title the chat by the
+	// note it's about, so history shows "Project Roadmap" instead of "/summarize".
+	if (firstUser.contextSourceNote) {
+		const base = noteBasename(firstUser.contextSourceNote);
+		if (base) return truncateTitle(base);
+	}
+	return null;
+}
+
+function truncateTitle(text: string): string {
+	return text.length > 40 ? text.slice(0, 40).trimEnd() + "…" : text;
 }
 
 function isSnapshot(x: unknown): x is Partial<ConversationSnapshot> {

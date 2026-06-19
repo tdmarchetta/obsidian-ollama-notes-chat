@@ -176,6 +176,19 @@ export default class OllamaChatPlugin extends Plugin {
 			}
 		}
 
+		// Backfill auto-derived titles: chats sent as a bare "/summarize" were titled
+		// with the slash literal. Re-derive (now note-name aware) so history reads by
+		// note. Manually-renamed chats (titleManuallySet) are left untouched; a null
+		// re-derivation is skipped so an existing title is never wiped to empty.
+		for (const c of conversations) {
+			if (c.titleManuallySet === true) continue;
+			const next = deriveAutoTitle(c.messages);
+			if (next && next !== c.title) {
+				c.title = next;
+				migrated = true;
+			}
+		}
+
 		this.store = new ConversationStore(conversations, activeId);
 
 		if (migrated) await this.savePersisted();

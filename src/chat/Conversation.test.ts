@@ -222,11 +222,54 @@ describe("deriveAutoTitle", () => {
 		).toBe("the meeting");
 	});
 
-	it("keeps the command text when nothing follows the slash command", () => {
-		// "/summarize" alone strips to "" so the original text is retained.
+	it("returns null for a bare slash command with no note context", () => {
+		// "/summarize" alone strips to "" and there's no note to fall back to.
 		expect(
 			deriveAutoTitle([{ id: "1", role: "user", content: "/summarize", createdAt: 0 }]),
-		).toBe("/summarize");
+		).toBeNull();
+	});
+
+	it("falls back to the note name for a bare slash command", () => {
+		expect(
+			deriveAutoTitle([
+				{
+					id: "1",
+					role: "user",
+					content: "/summarize",
+					createdAt: 0,
+					contextSourceNote: "Areas/Project Roadmap.md",
+				},
+			]),
+		).toBe("Project Roadmap");
+	});
+
+	it("prefers typed text over the note name", () => {
+		expect(
+			deriveAutoTitle([
+				{
+					id: "1",
+					role: "user",
+					content: "/summarize the meeting",
+					createdAt: 0,
+					contextSourceNote: "Areas/Project Roadmap.md",
+				},
+			]),
+		).toBe("the meeting");
+	});
+
+	it("truncates a long note name to 40 chars with an ellipsis", () => {
+		const longBase = "n".repeat(60);
+		expect(
+			deriveAutoTitle([
+				{
+					id: "1",
+					role: "user",
+					content: "/summarize",
+					createdAt: 0,
+					contextSourceNote: `Folder/${longBase}.md`,
+				},
+			]),
+		).toBe("n".repeat(40) + "…");
 	});
 
 	it("truncates long titles to 40 chars with an ellipsis", () => {
