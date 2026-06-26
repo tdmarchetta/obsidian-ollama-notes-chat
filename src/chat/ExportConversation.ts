@@ -7,6 +7,7 @@ import {
 	fillFilenameTemplate,
 	ensureFolder,
 	uniquePath,
+	assertWithinFolder,
 } from "./SaveAsNote";
 
 export function renderJson(snapshots: ConversationSnapshot[]): string {
@@ -40,9 +41,7 @@ export async function exportToMarkdown(
 		const conv = Conversation.fromSnapshot(snap);
 		const filename = sanitizeFilename(fillFilenameTemplate(filenameTemplate, conv.title));
 		const combined = normalizePath(`${folderPath}/${filename}.md`);
-		if (!combined.startsWith(`${folderPath}/`)) {
-			throw new Error("Refusing to export: resolved path escapes target folder.");
-		}
+		assertWithinFolder(combined, folderPath, "export");
 		const path = uniquePath(app, combined);
 		const content = renderMarkdown(conv, conv.title || undefined);
 		await app.vault.create(path, content);
@@ -63,9 +62,7 @@ export async function exportToJson(
 	const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 	const filename = `ollama-export-${date}.json`;
 	const combined = normalizePath(`${folderPath}/${filename}`);
-	if (!combined.startsWith(`${folderPath}/`)) {
-		throw new Error("Refusing to export: resolved path escapes target folder.");
-	}
+	assertWithinFolder(combined, folderPath, "export");
 	const path = uniquePath(app, combined);
 	await app.vault.create(path, renderJson(snapshots));
 	return path;
