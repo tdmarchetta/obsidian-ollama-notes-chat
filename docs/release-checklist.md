@@ -19,7 +19,7 @@ Load the built plugin (symlinked vault, `Cmd+R` after build):
 
 - [ ] **Stream + stop** — send a prompt, watch live tokens, hit stop mid-stream; the partial message is kept and marked stopped
 - [ ] **Switch-while-streaming guard** — try switching/creating/deleting a conversation mid-stream; a Notice refuses
-- [ ] **Context modes** — cycle the pill through all five modes; send once with active-note context and confirm the note text reaches the model
+- [ ] **Context + model pickers** — open the context dropdown and run each of the six modes; switch the active model via the model dropdown; send once with active-note context and confirm the note text reaches the model
 - [ ] **RAG retrieval** — retrieval mode with an indexed vault: citations render as clickable `[[Note#Heading]]` links that open the right note (duplicate-basename citation resolves correctly)
 - [ ] **Rewrite** — select a paragraph, run "Rewrite selection", check the inline diff renders, then Accept once / Reject once (doc untouched on reject; single undo entry on accept)
 - [ ] **Tool use** (if a tool-capable model is available) — enable tools, ask something that triggers `read_note`; chips render and expand
