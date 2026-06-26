@@ -2,6 +2,18 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
+## [0.7.15] — 2026-06-26
+
+Maintenance release — a dev-toolchain bump plus housekeeping already landed on `main`. No user-facing behavior change.
+
+### Changed
+- **eslint 9 → 10** (#20). Dev-only lint toolchain; eslint isn't bundled into `main.js`, so the shipped plugin is behavior-identical. Taken once it cleared the 14-day cooldown (published 2026-06-12). The other open bumps stayed behind the cooldown and were left open: vitest 4.1.9 (eligible 06-29), actions/checkout v7 (07-02), `@types/node` 26 (07-08).
+- **Path-escape guard deduped into a shared `assertWithinFolder` helper** (#28) — behavior-preserving refactor of the path-traversal defense (ADR-007 / ADR-009); the only delta to the shipped `main.js`.
+
+### Internal
+- **14-day dependency cooldown** added to `.github/dependabot.yml` (#26); committed `CHANGELOG.md` + thinned `AGENTS.md` (#27).
+- **`manifest.json` / `package.json` / `versions.json`** bumped to `0.7.15`.
+
 ## [0.7.14] — 2026-06-26
 
 Chat-subheader UX — the context pill becomes two dropdown pickers. No schema or settings change.
