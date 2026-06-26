@@ -7,7 +7,8 @@ A right-sidebar chat panel that lets you chat with your notes using a remote Oll
 - **Right-sidebar chat** — opens from the left ribbon (chat-bubble icon), the command palette, or the editor right-click menu.
 - **Native Obsidian look** — styled with theme CSS variables, so it adapts to any light/dark theme automatically.
 - **Streaming responses** — tokens arrive live over NDJSON.
-- **Context modes** — chat about the current note, the current selection, the current note plus its one-hop linked notes, retrieved passages from across the whole vault (RAG), or no context at all. Tap the subheader to cycle modes.
+- **Context modes** — chat about the current note, the current selection, the current note plus its one-hop linked notes, the whole current folder, retrieved passages from across the vault (RAG), or no context at all. Pick a mode from the **context dropdown** in the subheader.
+- **Quick model switch** — a **model dropdown** in the subheader changes the active Ollama model on the fly, without opening settings.
 - **Retrieval (RAG)** — embed your question and pull the most relevant passages from anywhere in the vault. Citations render as real `[[Note#Heading]]` links you can click. Index builds incrementally in the background; edits and renames re-embed automatically with a 2s debounce. Embedder model is configurable and independent from the chat model.
 - **Markdown rendering** — AI responses are rendered with Obsidian's own Markdown renderer: code blocks, callouts, tables, and `[[wikilinks]]` all work.
 - **Slash commands** — `/summarize`, `/expand`, `/rewrite`, `/brainstorm` out of the box, fully editable in settings.
@@ -115,7 +116,7 @@ If you want to chat with the whole vault instead of a single active note:
 1. In **Settings → Ollama Notes Chat**, scroll to the **Retrieval** section.
 2. Pick an **embedder model** from the dropdown (`nomic-embed-text` is the small, fast default). This is separate from your chat model.
 3. Leave **auto-index on load** on (default) or click **Reindex vault** to build the index manually. Progress appears in the same panel.
-4. In the chat view, tap the context-mode pill in the subheader until it reads "Retrieved passages".
+4. In the chat view, open the **context dropdown** in the subheader and choose "Retrieved passages".
 5. Ask a question. The response will include `From [[Note#Heading]]` citations you can click to jump to the source.
 
 Index is stored at `.obsidian/plugins/ollama-notes-chat/index.json`. It updates incrementally when notes change (2-second debounce) and invalidates automatically if you change the embedder model. On large vaults the cold reindex can take several minutes — you can click Cancel at any time and resume later.
@@ -162,6 +163,10 @@ When this note is the active context, the plugin uses these values instead of th
 - `src/rag/Indexer.ts` — vault walk, mtime-diff, batched embedding, debounced event handlers.
 - `src/settings/` — typed settings, defaults, and the settings tab.
 - `styles.css` — scoped under `.ollama-chat-view` / `.ollama-chat-settings`; uses only Obsidian theme variables.
+
+## Changelog
+
+Release history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Support
 

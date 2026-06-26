@@ -1,6 +1,6 @@
 # Ollama Notes Chat — User Guide
 
-**Version 0.7.10** · Personal-use, local-first chat with your Obsidian vault via a remote Ollama server.
+**Version 0.7.14** · Personal-use, local-first chat with your Obsidian vault via a remote Ollama server.
 
 ---
 
@@ -57,9 +57,9 @@ Ollama Notes Chat puts an AI chat panel in your right sidebar. It talks to an Ol
 | `circle-help` | Open user manual | Opens this user guide in a new Obsidian tab via the Web viewer core plugin (falls back to your default browser if Web viewer is disabled) |
 | `settings` | Open plugin settings | Jumps to the plugin settings tab |
 
-### Subheader (context mode pill)
+### Subheader (context + model pickers)
 
-The pill below the header shows the active context mode, e.g. "Current note". **Click it** (or press Enter/Space) to cycle through the five modes. The mode you choose applies to every message you send until you change it.
+The bar below the header has two dropdowns. The **context picker** (e.g. "Context: Current note") opens a menu of all six context modes — click it or press Enter/Space, then pick one; the choice applies to every message until you change it. The **model picker** beside it lists the models installed on your Ollama server (from `/api/tags`) and switches the active model live, so you can change models without opening settings.
 
 ### Sending a message
 
@@ -90,7 +90,7 @@ The limit is set per-model (or falls back to **Default model context limit** in 
 
 ## 3. Context Modes
 
-Context mode controls what note content, if any, is injected before your message. Tap the subheader pill to cycle through them, or change the **Default context mode** in settings.
+Context mode controls what note content, if any, is injected before your message. Open the **context picker** in the subheader and select one, or change the **Default context mode** in settings.
 
 ### No context
 
@@ -109,6 +109,10 @@ Only the text you have highlighted in the editor is sent. Useful when a note is 
 ### Current + linked notes
 
 The active note's content plus the content of every note it links to with `[[wikilinks]]` (one hop only). Good for synthesising a cluster of related notes — e.g., a project note that links to meeting notes, decisions, and references.
+
+### Current folder
+
+Every note in the same folder as the active note (non-recursive). Useful when you organise by folder — a project folder, a daily-notes folder — and want the whole set without linking the notes together. Clipped with a warning if the combined content exceeds the truncation limit.
 
 ### Retrieved passages
 
@@ -432,7 +436,7 @@ Open **Settings → Ollama Notes Chat** to configure everything. Sections are li
 
 | Setting | Default | Notes |
 |---|---|---|
-| **Default context mode** | Current note | The mode selected when you first open a chat. You can always change it per-session with the subheader pill. |
+| **Default context mode** | Current note | The mode selected when you first open a chat. You can always change it per-session with the subheader's context picker. |
 | **Truncation limit (chars)** | 16,000 | If the injected context exceeds this, it is clipped and a warning appears in the chat. This is a character count, not a token count. Rough guide: 16,000 chars ≈ 4,000 tokens. Raise this if you're seeing truncation warnings on notes you want fully included. Lowering it speeds up responses by reducing context. |
 | **Include frontmatter in context** | On | When on, YAML frontmatter is included in the note content sent to the model. Turn off if your frontmatter is large and noisy (e.g., lots of plugin-generated keys), or if you don't want the AI to see metadata like tags, dates, etc. |
 
@@ -506,7 +510,7 @@ No hotkeys are bound by default. Assign them in **Settings → Hotkeys** by sear
 
 ### "Cannot reach server"
 Ollama is not reachable from Obsidian. Check:
-- `OLLAMA_HOST=0.0.0.0:11434` and `OLLAMA_ORIGINS=*` are set in the Ollama host's environment.
+- `OLLAMA_HOST=0.0.0.0:11434` and `OLLAMA_ORIGINS=app://obsidian.md` (or `*`) are set in the Ollama host's environment.
 - Ollama was restarted after those variables were set.
 - The IP in **Base URL** is correct and the host machine is on the same network.
 - No firewall is blocking port 11434.
