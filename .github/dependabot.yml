@@ -8,8 +8,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # 14-day cooldown: only open a bump once the target version has been
+    # published >=14 days, so a freshly-pushed (possibly compromised or
+    # half-baked) release ages out first. Version updates only — security
+    # updates bypass cooldown.
+    cooldown:
+      default-days: 14
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
