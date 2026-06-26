@@ -2,6 +2,7 @@ import {
 	ItemView,
 	MarkdownRenderer,
 	MarkdownView,
+	Menu,
 	Notice,
 	WorkspaceLeaf,
 	setIcon,
@@ -46,6 +47,7 @@ export class ChatView extends ItemView {
 	private plugin: OllamaChatPlugin;
 	private conv: Conversation;
 	private contextMode: ContextMode;
+	private modelMenuLoading = false;
 
 	private abortController: AbortController | null = null;
 	private streaming = false;
@@ -125,17 +127,9 @@ export class ChatView extends ItemView {
 		this.iconButton(actions, "circle-help", "Open user manual", () => this.openUserManual());
 		this.iconButton(actions, "settings", "Open plugin settings", () => this.openSettings());
 
+		// Context + model pickers are built per-segment in refreshSubheader();
+		// the bar itself is just a passive container.
 		this.subheaderEl = root.createDiv({ cls: "ollama-chat-subheader" });
-		this.subheaderEl.setAttr("role", "button");
-		this.subheaderEl.setAttr("tabindex", "0");
-		setTooltip(this.subheaderEl, "Click to cycle context mode");
-		this.subheaderEl.addEventListener("click", () => this.cycleContextMode());
-		this.subheaderEl.addEventListener("keydown", (evt) => {
-			if (evt.key === "Enter" || evt.key === " ") {
-				evt.preventDefault();
-				this.cycleContextMode();
-			}
-		});
 
 		this.listEl = root.createDiv({ cls: "ollama-chat-list" });
 		this.emptyStateEl = this.listEl.createDiv({ cls: "ollama-chat-empty" });
@@ -254,9 +248,31 @@ export class ChatView extends ItemView {
 		const label = CONTEXT_MODE_LABEL[this.contextMode];
 		const model = this.plugin.settings.model || "no model";
 		this.subheaderEl.empty();
-		this.subheaderEl.createSpan({ text: `Context: ${label}` });
-		this.subheaderEl.createSpan({ text: " · " });
-		this.subheaderEl.createSpan({ text: model });
+		this.buildSubheaderSegment(`Context: ${label}`, "Change context mode", (anchor) =>
+			this.openContextMenu(anchor),
+		);
+		this.subheaderEl.createSpan({ cls: "ollama-chat-subheader-sep", text: "·" });
+		this.buildSubheaderSegment(model, "Switch model", (anchor) => void this.openModelMenu(anchor));
+	}
+
+	private buildSubheaderSegment(
+		text: string,
+		tooltip: string,
+		onOpen: (anchor: HTMLElement) => void,
+	): void {
+		const seg = this.subheaderEl.createSpan({ cls: "ollama-chat-subheader-segment" });
+		seg.setAttr("role", "button");
+		seg.setAttr("tabindex", "0");
+		setTooltip(seg, tooltip);
+		seg.createSpan({ text });
+		setIcon(seg.createSpan({ cls: "ollama-chat-subheader-chevron" }), "chevron-down");
+		seg.addEventListener("click", () => onOpen(seg));
+		seg.addEventListener("keydown", (evt) => {
+			if (evt.key === "Enter" || evt.key === " ") {
+				evt.preventDefault();
+				onOpen(seg);
+			}
+		});
 	}
 
 	private applyFontSize(): void {
@@ -608,13 +624,63 @@ export class ChatView extends ItemView {
 
 	// ---------- actions ----------
 
-	private cycleContextMode(): void {
-		const idx = CONTEXT_MODE_ORDER.indexOf(this.contextMode);
-		// The modulo keeps the index in-bounds; `?? "none"` only satisfies
-		// noUncheckedIndexedAccess.
-		this.contextMode = CONTEXT_MODE_ORDER[(idx + 1) % CONTEXT_MODE_ORDER.length] ?? "none";
+	private setContextMode(mode: ContextMode): void {
+		this.contextMode = mode;
 		this.refreshSubheader();
 		this.updateInputPlaceholder();
+	}
+
+	private openContextMenu(anchorEl: HTMLElement): void {
+		const menu = new Menu();
+		for (const mode of CONTEXT_MODE_ORDER) {
+			menu.addItem((item) =>
+				item
+					.setTitle(CONTEXT_MODE_LABEL[mode])
+					.setChecked(mode === this.contextMode)
+					.onClick(() => this.setContextMode(mode)),
+			);
+		}
+		this.showMenuUnder(menu, anchorEl);
+	}
+
+	private async openModelMenu(anchorEl: HTMLElement): Promise<void> {
+		if (this.modelMenuLoading) return;
+		this.modelMenuLoading = true;
+		let models: string[];
+		try {
+			models = await this.plugin.ollama.listModels();
+		} catch {
+			new Notice("Couldn't reach the server to list models.");
+			return;
+		} finally {
+			this.modelMenuLoading = false;
+		}
+		if (models.length === 0) {
+			new Notice("No models installed on the server.");
+			return;
+		}
+		const menu = new Menu();
+		for (const name of models) {
+			menu.addItem((item) =>
+				item
+					.setTitle(name)
+					.setChecked(name === this.plugin.settings.model)
+					.onClick(() => void this.selectModel(name)),
+			);
+		}
+		this.showMenuUnder(menu, anchorEl);
+	}
+
+	private async selectModel(name: string): Promise<void> {
+		this.plugin.settings.model = name;
+		// saveSettings() → notifyViews() → onSettingsChanged() → refreshSubheader(),
+		// so the header label updates live; no explicit refresh needed here.
+		await this.plugin.saveSettings();
+	}
+
+	private showMenuUnder(menu: Menu, anchorEl: HTMLElement): void {
+		const r = anchorEl.getBoundingClientRect();
+		menu.showAtPosition({ x: r.left, y: r.bottom });
 	}
 
 	private async onSendOrStop(): Promise<void> {
