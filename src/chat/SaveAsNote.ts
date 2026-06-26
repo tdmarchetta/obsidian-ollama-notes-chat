@@ -15,13 +15,7 @@ export async function saveConversationAsNote(
 		fillFilenameTemplate(filenameTemplate, activeTitle),
 	);
 	const combined = normalizePath(`${folderPath}/${filename}.md`);
-	// Post-normalization escape check: Obsidian's normalizePath collapses
-	// "." / ".." segments, so if a malicious filenameTemplate ever slipped a
-	// traversal past sanitizeFilename we want the final path to still sit
-	// under folderPath.
-	if (!combined.startsWith(`${folderPath}/`)) {
-		throw new Error("Refusing to save: resolved path escapes target folder.");
-	}
+	assertWithinFolder(combined, folderPath, "save");
 	const path = uniquePath(app, combined);
 	const content = renderMarkdown(conversation, activeTitle);
 	const file = await app.vault.create(path, content);
@@ -101,6 +95,17 @@ export function uniquePath(app: App, basePath: string): string {
 	let i = 2;
 	while (app.vault.getAbstractFileByPath(`${stem} (${i})${ext}`)) i++;
 	return `${stem} (${i})${ext}`;
+}
+
+// Post-normalization escape check, shared by the save-as-note and export
+// paths: Obsidian's normalizePath collapses "." / ".." segments, so if a
+// malicious filename/template ever slipped a traversal past sanitizeFilename
+// we want the final path to still sit under folderPath. `action` names the
+// operation for the thrown message ("save" / "export").
+export function assertWithinFolder(combined: string, folderPath: string, action: string): void {
+	if (!combined.startsWith(`${folderPath}/`)) {
+		throw new Error(`Refusing to ${action}: resolved path escapes target folder.`);
+	}
 }
 
 export function renderMarkdown(conversation: Conversation, activeTitle?: string): string {
