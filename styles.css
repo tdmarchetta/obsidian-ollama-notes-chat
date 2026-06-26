@@ -128,7 +128,7 @@
 	height: 16px;
 }
 
-/* ---------- subheader (context + model chips) ---------- */
+/* ---------- subheader (context + model pickers) ---------- */
 
 .ollama-chat-view .ollama-chat-subheader {
 	display: flex;
@@ -139,13 +139,43 @@
 	color: var(--text-muted);
 	border-bottom: 1px solid var(--background-modifier-border);
 	flex-shrink: 0;
-	cursor: pointer;
 	user-select: none;
 }
 
-.ollama-chat-view .ollama-chat-subheader:hover {
+.ollama-chat-view .ollama-chat-subheader-segment {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 6px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.ollama-chat-view .ollama-chat-subheader-segment:hover {
 	background-color: var(--background-modifier-hover);
 	color: var(--text-normal);
+}
+
+.ollama-chat-view .ollama-chat-subheader-segment:focus-visible {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+	outline: 1px solid var(--background-modifier-border-focus);
+	outline-offset: -1px;
+}
+
+.ollama-chat-view .ollama-chat-subheader-chevron {
+	display: inline-flex;
+	align-items: center;
+	color: var(--text-faint);
+}
+
+.ollama-chat-view .ollama-chat-subheader-chevron svg {
+	width: 14px;
+	height: 14px;
+}
+
+.ollama-chat-view .ollama-chat-subheader-sep {
+	color: var(--text-faint);
 }
 
 /* ---------- message list ---------- */
