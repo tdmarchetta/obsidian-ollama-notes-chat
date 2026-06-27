@@ -10,12 +10,19 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 Obsidian right-sidebar plugin that chats with your notes via a remote Ollama server on the LAN. Local-first; published in the Obsidian community store (id `ollama-notes-chat`, auto-updates in-app). Deeper docs: [wiki/architecture.md](wiki/architecture.md), [project.md](project.md), [roadmap.md](roadmap.md), [docs/user-guide.md](docs/user-guide.md).
 
+## Commands
+
+- **Build:** `npm run build` — `tsc -noEmit -skipLibCheck` (typecheck = the correctness gate) then esbuild bundle. **Don't** remove `noEmit`.
+- **Dev watch:** `npm run dev` — esbuild only, no typecheck.
+- **Test:** `npm test` (all) · `npx vitest run <path>` (one file) · `npx vitest run -t "<pattern>"` (by name) · `npm run test:watch`.
+- **Lint:** `npm run lint` — CI-only on the SynologyDrive mount (local `node_modules` can't resolve `eslint-plugin-obsidianmd` → `@microsoft/eslint-plugin-sdl`).
+
 ## Stack & conventions
 
 - **TypeScript (strict)**, `lib: ["DOM", "ES2021"]`, CJS bundle via esbuild. `main.js` ships zero runtime deps (only `tslib`); Obsidian + CodeMirror externalized. `tsconfig` has `strict: true` + `noUncheckedIndexedAccess` (since 0.7.10) — don't weaken the flags. Index-access convention: in production code, guard or use a `??` fallback with a brief comment when the access is in-bounds by invariant; bare `!` assertions are fine in tests.
 - **Build:** `npm run build` (`tsc -noEmit -skipLibCheck && esbuild`) — typecheck is the correctness gate; `tsc` is typecheck-only (`noEmit: true` in tsconfig — **don't remove it**: a bare emitting `tsc` litters a per-file `.js` beside every `.ts`/`.test.ts`, gitignored under `src|test/**/*.js`). `npm run dev` = esbuild watch (no typecheck).
 - **Tests:** `npm test` (vitest). Single file: `npx vitest run path`; by name: `-t "pattern"`. `vitest.config.ts` aliases `obsidian` → `test/obsidian-stub.ts`, so only pure-logic modules are covered; a test needing an un-stubbed API must extend the stub first. Code using `window.*` timers needs `vi.stubGlobal("window", …)` — `Indexer.test.ts` shows the pattern (incl. fake-timer debounce tests).
-- **Lint:** `npm run lint` (ESLint v9 flat + `eslint-plugin-obsidianmd/recommended` — same ruleset ObsidianReviewBot runs).
+- **Lint:** `npm run lint` (ESLint v10 flat + `eslint-plugin-obsidianmd/recommended` — same ruleset ObsidianReviewBot runs — plus `eslint-plugin-no-unsanitized`, which fails CI on unsafe DOM sinks like `innerHTML`).
 - **Repo guardrails (since 2026-06-10):** `main` is branch-protected — PR with green `CI / check` required, **admins included**, and **branches must be up to date before merging**, so even doc-only changes go through a PR (no direct pushes) and dependabot/stacked PRs each need an `update-branch` → fresh-CI → merge cycle — they can't batch-merge, since landing one bumps the rest back to `BEHIND`. Dependabot alerts + weekly npm/actions bump PRs (`.github/dependabot.yml`, **14-day cooldown** — a version bump only opens once its target is ≥14 days old; security updates bypass it); CodeQL default setup scans push/PR.
 - **CSS** scoped under `.ollama-chat-view` / `.ollama-chat-settings`; Obsidian theme variables only (never hardcoded colors); flat class names, not BEM.
 - **Identifiers:** plugin id `ollama-notes-chat`, view type `ollama-notes-chat-view`, command `ollama-notes-chat:rewrite-selection`. Vault symlink folder must match the plugin id.

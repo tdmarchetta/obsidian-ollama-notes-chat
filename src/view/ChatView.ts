@@ -10,7 +10,7 @@ import {
 } from "obsidian";
 import type OllamaChatPlugin from "../../main";
 import { Conversation, Message, ToolCall } from "../chat/Conversation";
-import { buildContext, getPerNoteOverride } from "../context/NoteContext";
+import { buildContext, describeActiveOverride, getPerNoteOverride } from "../context/NoteContext";
 import { ChatMessage } from "../ollama/OllamaClient";
 import { ContextMode, contextLimitForModel } from "../settings/Settings";
 import { saveConversationAsNote } from "../chat/SaveAsNote";
@@ -614,6 +614,22 @@ export class ChatView extends ItemView {
 		this.statusLineEl.createSpan({
 			text: `${settings.model || "no model"} · ~${tokens.toLocaleString()} / ${limit.toLocaleString()} tok`,
 		});
+
+		// Surface per-note frontmatter overrides so the active note can't change
+		// the assistant's system prompt / model silently (a note from an
+		// untrusted source could otherwise redirect it without any visible cue).
+		const overridden = describeActiveOverride(
+			getPerNoteOverride(this.app, this.app.workspace.getActiveFile()),
+		);
+		if (overridden.length > 0) {
+			const badge = this.statusLineEl.createSpan({ cls: "ollama-chat-override-badge" });
+			setIcon(badge.createSpan({ cls: "ollama-chat-override-badge-icon" }), "shield");
+			badge.createSpan({ text: "note override" });
+			setTooltip(
+				badge,
+				`This note's frontmatter is overriding the AI's ${overridden.join(" and ")}.`,
+			);
+		}
 	}
 
 	private historyChars(): number {

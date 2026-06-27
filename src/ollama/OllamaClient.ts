@@ -179,11 +179,7 @@ export class OllamaClient {
 			};
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			const hint =
-				/Failed to fetch|NetworkError|TypeError/i.test(msg)
-					? " — check that Ollama is running, OLLAMA_HOST=0.0.0.0:11434 is set, and OLLAMA_ORIGINS=* allows Obsidian."
-					: "";
-			return { ok: false, message: `Cannot reach server: ${msg}${hint}` };
+			return { ok: false, message: `Cannot reach server: ${msg}${connectionFailureHint(msg)}` };
 		}
 	}
 
@@ -395,6 +391,23 @@ function newCallId(): string {
 function nsToMs(ns: number | undefined): number {
 	if (typeof ns !== "number" || !Number.isFinite(ns)) return 0;
 	return ns / 1_000_000;
+}
+
+/**
+ * Trailing hint appended to a failed-connection message. Only network-level
+ * failures (fetch/CORS) get the env-var nudge; an HTTP error like 404 doesn't.
+ *
+ * Recommends the *scoped* `OLLAMA_ORIGINS=app://obsidian.md` rather than the
+ * wildcard `*`: the error toast is the guidance a user is most likely to copy,
+ * so it must point at the least-permissive setting that works (matching the
+ * README and user guide). A wildcard would let any web page the user visits
+ * reach their Ollama server.
+ *
+ * Exported for unit testing.
+ */
+export function connectionFailureHint(msg: string): string {
+	if (!/Failed to fetch|NetworkError|TypeError/i.test(msg)) return "";
+	return " — check that Ollama is running, OLLAMA_HOST=0.0.0.0:11434 is set, and OLLAMA_ORIGINS=app://obsidian.md allows Obsidian.";
 }
 
 /**
