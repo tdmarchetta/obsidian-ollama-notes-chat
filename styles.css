@@ -521,6 +521,29 @@
 	font-weight: var(--font-semibold, 600);
 }
 
+.ollama-chat-view .ollama-chat-override-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	margin-left: 8px;
+	padding: 0 5px;
+	border-radius: var(--radius-s, 4px);
+	background: var(--background-modifier-border, rgba(0, 0, 0, 0.1));
+	color: var(--text-warning, #d08770);
+	font-size: var(--font-ui-smaller);
+	cursor: help;
+}
+
+.ollama-chat-view .ollama-chat-override-badge-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+.ollama-chat-view .ollama-chat-override-badge-icon svg {
+	width: 12px;
+	height: 12px;
+}
+
 /* ---------- font-size + compact mode overrides ---------- */
 
 .ollama-chat-view.ollama-font-small {

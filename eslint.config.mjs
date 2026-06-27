@@ -1,6 +1,7 @@
 import tsparser from "@typescript-eslint/parser";
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
+import nounsanitized from "eslint-plugin-no-unsanitized";
 
 export default defineConfig([
 	{
@@ -19,6 +20,10 @@ export default defineConfig([
 		],
 	},
 	...obsidianmd.configs.recommended,
+	// Flag unsafe DOM sinks (innerHTML, insertAdjacentHTML, etc.) so a future
+	// change can't reintroduce an XSS vector with untrusted LLM/note content.
+	// Current code is clean; this keeps it that way.
+	nounsanitized.configs.recommended,
 	{
 		files: ["**/*.ts"],
 		languageOptions: {

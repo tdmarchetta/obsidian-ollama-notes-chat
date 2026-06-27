@@ -370,6 +370,10 @@ ai:
 
 Overrides only apply when the note is the **active context** (i.e., current-note, current-selection, or linked-notes modes using this note as the root). They have no effect in retrieval mode or no-context mode.
 
+### "Note override" indicator
+
+Whenever the open note overrides the **model** or **system prompt**, a small **note override** badge appears in the status strip below the message box (hover it to see exactly what's overridden). This is a safety cue: because any note can carry an `ai` block, a note you didn't write — copied from a shared vault, a downloaded template, or a synced folder — could otherwise redirect the assistant without you noticing. If you see the badge on a note you don't fully trust, open the note's frontmatter and check the `ai` block before relying on the answer. (`toolsDisabled` doesn't show a badge — it only ever *reduces* what the assistant can do, so it can't be used against you.)
+
 ---
 
 ## 12. Stats Modal

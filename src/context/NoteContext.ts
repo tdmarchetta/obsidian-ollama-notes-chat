@@ -104,6 +104,19 @@ export function getPerNoteOverride(
 	return out;
 }
 
+// Human-readable labels for the chat-relevant per-note overrides, driving the
+// on-screen "note override" badge so an active note (possibly from an untrusted
+// source) can't silently reconfigure the assistant. Only `systemPrompt` and
+// `model` change a chat send; `rewrite*` apply to the rewrite command, and
+// `toolsDisabled` only *reduces* capability, so none of those warrant a warning.
+// Exported for unit testing.
+export function describeActiveOverride(override: PerNoteFrontmatterOverride): string[] {
+	const out: string[] = [];
+	if (override.systemPrompt !== undefined) out.push("system prompt");
+	if (override.model !== undefined) out.push("model");
+	return out;
+}
+
 function getActiveSelection(app: App): string | null {
 	const view = app.workspace.getActiveViewOfType(MarkdownView);
 	if (!view) return null;
