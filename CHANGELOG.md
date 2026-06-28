@@ -2,6 +2,15 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
+## [Unreleased]
+
+Bug fixes surfaced by a full button-by-button UI audit. No schema or settings change.
+
+### Fixed
+- **"Insert into note" works from the chat sidebar again.** It previously always failed with *"No active note to insert into"*: clicking the button makes the sidebar the active leaf, so `getActiveViewOfType(MarkdownView)` returned `null`. It now falls back to the most-recently-active main-area leaf (`ChatView.insertIntoNote`).
+- **Conversation titles can contain spaces.** The inline rename `<input>` is a child of a `role="button"` element whose keydown handler treated Space as activation, swallowing the space before it reached the input — so titles truncated at the first word. The header rename (`ChatView`) and history-drawer rename (`HistoryDrawer`) now ignore key events originating from the child input.
+- **Renaming the active chat from the history drawer updates its header live.** The store/drawer updated but the open view's in-memory title stayed stale until a switch/reload; `ChatView` now syncs its title on rename of the active conversation.
+
 ## [0.7.17] — 2026-06-27
 
 Privacy: an explicit network-egress control. No schema change.
