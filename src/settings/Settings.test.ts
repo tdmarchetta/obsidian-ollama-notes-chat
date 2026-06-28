@@ -37,6 +37,27 @@ describe("mergeSettings", () => {
 		mergeSettings({ temperature: 0 });
 		expect(DEFAULT_SETTINGS.temperature).toBe(0.7);
 	});
+
+	it("defaults allowRemoteHost to false (private by default)", () => {
+		expect(mergeSettings(null).allowRemoteHost).toBe(false);
+		expect(mergeSettings({ model: "x" }).allowRemoteHost).toBe(false);
+	});
+
+	it("grandfathers an existing non-local baseUrl when the flag is absent (no silent break on upgrade)", () => {
+		expect(mergeSettings({ baseUrl: "http://192.168.7.43:11434" }).allowRemoteHost).toBe(true);
+	});
+
+	it("does not grandfather a loopback baseUrl", () => {
+		expect(mergeSettings({ baseUrl: "http://localhost:11434" }).allowRemoteHost).toBe(false);
+	});
+
+	it("respects an explicit allowRemoteHost over grandfathering", () => {
+		const merged = mergeSettings({
+			baseUrl: "http://192.168.7.43:11434",
+			allowRemoteHost: false,
+		});
+		expect(merged.allowRemoteHost).toBe(false);
+	});
 });
 
 describe("contextLimitForModel", () => {

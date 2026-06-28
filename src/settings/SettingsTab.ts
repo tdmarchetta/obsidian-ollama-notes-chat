@@ -67,6 +67,22 @@ export class OllamaChatSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(container)
+			.setName("Allow data to leave this computer")
+			.setDesc(
+				"Off (default): only connect to a server on this computer (localhost), so your note content never leaves the machine. " +
+					"On: also allow a server on another computer on your network — your note content will be sent to it.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.allowRemoteHost)
+					.onChange(async (v) => {
+						this.plugin.settings.allowRemoteHost = v;
+						await this.plugin.saveSettings();
+						this.plugin.ollama.setAllowRemoteHost(v);
+					}),
+			);
+
 		const testSetting = new Setting(container)
 			.setName("Test connection")
 			.setDesc("Verifies the server is reachable from Obsidian.");

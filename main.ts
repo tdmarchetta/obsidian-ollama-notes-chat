@@ -35,7 +35,7 @@ export default class OllamaChatPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		await this.loadPersisted();
-		this.ollama = new OllamaClient(this.settings.baseUrl);
+		this.ollama = new OllamaClient(this.settings.baseUrl, this.settings.allowRemoteHost);
 
 		const indexPath = `${this.manifest.dir ?? `.obsidian/plugins/${this.manifest.id}`}/index.json`;
 		this.vectorStore = new VectorStore(this.app.vault.adapter, indexPath);
@@ -197,6 +197,7 @@ export default class OllamaChatPlugin extends Plugin {
 	async saveSettings(): Promise<void> {
 		await this.savePersisted();
 		this.ollama?.setBaseUrl(this.settings.baseUrl);
+		this.ollama?.setAllowRemoteHost(this.settings.allowRemoteHost);
 		this.indexer?.updateSettings(this.settings);
 		if (
 			this.indexer &&
