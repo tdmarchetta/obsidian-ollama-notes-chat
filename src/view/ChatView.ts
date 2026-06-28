@@ -161,6 +161,13 @@ export class ChatView extends ItemView {
 		const statusRow = inputWrap.createDiv({ cls: "ollama-chat-status-row" });
 		this.statusLineEl = statusRow.createSpan({ cls: "ollama-chat-status" });
 
+		// Refresh the status strip when the active note changes — the per-note
+		// override badge reflects the active note's `ai` frontmatter, so it must
+		// re-evaluate on note switches, not only on chat interactions.
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () => this.updateStatus()),
+		);
+
 		this.refreshSubheader();
 		this.updateStatus();
 		this.updateInputPlaceholder();
