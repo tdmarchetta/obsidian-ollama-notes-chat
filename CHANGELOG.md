@@ -2,6 +2,16 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
+## [0.7.17] — 2026-06-27
+
+Privacy: an explicit network-egress control. No schema change.
+
+### Added
+- **"Allow data to leave this computer" setting** (Connection section) — when **off** (default for new installs), the plugin only connects to a loopback Ollama server (`localhost` / `127.x` / `::1`), so note content never leaves the machine; a non-local Base URL is refused with a clear, host-named error. When **on**, it may connect to a server on another machine on the LAN. Enforced centrally in `OllamaClient` before every request path (chat, stream, embed, list-models), so retrieval/indexing and tool use are covered too. New pure helper `src/util/loopback.ts`.
+
+### Changed
+- **Upgrade is non-breaking:** `mergeSettings` grandfathers an existing non-local Base URL (auto-enables the new toggle) so current LAN setups keep working; fresh installs stay private by default.
+
 ## [0.7.16] — 2026-06-27
 
 Security-hardening release from a full audit. No critical or high-severity findings; these are low-severity hardening items. No schema or settings change.
