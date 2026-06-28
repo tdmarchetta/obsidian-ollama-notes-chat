@@ -2,6 +2,22 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
+## [0.7.16] — 2026-06-27
+
+Security-hardening release from a full audit. No critical or high-severity findings; these are low-severity hardening items. No schema or settings change.
+
+### Added
+- **"Note override" indicator** (#30) — the status strip below the message box now shows a **note override** badge (with a tooltip) whenever the active note's `ai` frontmatter overrides the system prompt or model, so a note from an untrusted source can't silently redirect the assistant. The badge tracks the active note via an `active-leaf-change` listener, so it appears/clears as you switch notes.
+
+### Changed
+- **In-app connection hint recommends the scoped `OLLAMA_ORIGINS=app://obsidian.md`** instead of the wildcard `*` (#30) — the error toast is the guidance users are most likely to copy, so it now points at the least-permissive origin that works, matching the README and user guide.
+
+### Security
+- **`eslint-plugin-no-unsanitized` now enforced in CI** (#30) — the installed-but-unwired linter is registered in the flat config, failing the build on unsafe DOM sinks (`innerHTML`, etc.) so a future change can't reintroduce an injection vector. Current code is clean.
+
+### Internal
+- **`manifest.json` / `package.json` / `versions.json`** bumped to `0.7.16`.
+
 ## [0.7.15] — 2026-06-26
 
 Maintenance release — a dev-toolchain bump plus housekeeping already landed on `main`. No user-facing behavior change.
