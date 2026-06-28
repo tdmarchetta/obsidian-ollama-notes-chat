@@ -1,4 +1,5 @@
 import { requestUrl } from "obsidian";
+import { hostnameOf, isLoopbackUrl } from "../util/loopback";
 
 export interface OllamaToolCall {
 	function: {
@@ -74,13 +75,21 @@ export type ChatStreamEvent =
 
 export class OllamaClient {
 	private baseUrl: string;
+	// Privacy egress guard: when false, requests to a non-loopback host are
+	// refused so note content can't leave this computer. See `setAllowRemoteHost`.
+	private allowRemoteHost: boolean;
 
-	constructor(baseUrl: string) {
+	constructor(baseUrl: string, allowRemoteHost = false) {
 		this.baseUrl = normalize(baseUrl);
+		this.allowRemoteHost = allowRemoteHost;
 	}
 
 	setBaseUrl(baseUrl: string): void {
 		this.baseUrl = normalize(baseUrl);
+	}
+
+	setAllowRemoteHost(allow: boolean): void {
+		this.allowRemoteHost = allow;
 	}
 
 	getBaseUrl(): string {
@@ -95,8 +104,23 @@ export class OllamaClient {
 		}
 	}
 
+	// Block sending data off this computer unless the user has explicitly opted
+	// in. Called by every request path; `requireBaseUrl` runs first so an empty
+	// URL never reaches here. Loopback (localhost / 127.x / ::1) is always
+	// allowed; anything else needs `allowRemoteHost`.
+	private requireEgressAllowed(): void {
+		if (this.allowRemoteHost) return;
+		if (isLoopbackUrl(this.baseUrl)) return;
+		const host = hostnameOf(this.baseUrl) ?? this.baseUrl;
+		throw new Error(
+			`Blocked by your privacy setting: "${host}" is on another machine, and ` +
+				`"Allow data to leave this computer" is off. Turn it on in settings to use a non-local server.`,
+		);
+	}
+
 	async embed(model: string, input: string | string[]): Promise<number[][]> {
 		this.requireBaseUrl();
+		this.requireEgressAllowed();
 		const body = { model, input };
 		const res = await requestUrl({
 			url: `${this.baseUrl}/api/embed`,
@@ -118,6 +142,7 @@ export class OllamaClient {
 
 	async chatOnce(opts: ChatOptions): Promise<string> {
 		this.requireBaseUrl();
+		this.requireEgressAllowed();
 		const body: Record<string, unknown> = {
 			model: opts.model,
 			messages: opts.messages,
@@ -153,6 +178,7 @@ export class OllamaClient {
 
 	async listModels(): Promise<string[]> {
 		this.requireBaseUrl();
+		this.requireEgressAllowed();
 		const res = await requestUrl({
 			url: `${this.baseUrl}/api/tags`,
 			method: "GET",
@@ -185,6 +211,7 @@ export class OllamaClient {
 
 	async *chatStream(opts: ChatOptions): AsyncGenerator<ChatStreamEvent, void, void> {
 		this.requireBaseUrl();
+		this.requireEgressAllowed();
 		const body: Record<string, unknown> = {
 			model: opts.model,
 			messages: opts.messages,

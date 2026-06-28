@@ -1,3 +1,5 @@
+import { isLoopbackUrl } from "../util/loopback";
+
 export type ContextMode = "none" | "current-note" | "current-selection" | "linked-notes" | "current-folder" | "retrieval";
 
 export type FontSize = "inherit" | "small" | "medium" | "large";
@@ -14,6 +16,10 @@ export interface ModelContextLimit {
 
 export interface OllamaChatSettings {
 	baseUrl: string;
+	// When false (default), the plugin refuses to connect to anything but this
+	// computer's loopback interface — note content never leaves the machine.
+	// Turn on to reach an Ollama server on another machine on the LAN.
+	allowRemoteHost: boolean;
 	model: string;
 	systemPrompt: string;
 	temperature: number;
@@ -54,6 +60,7 @@ export const DEFAULT_REWRITE_SYSTEM_PROMPT =
 
 export const DEFAULT_SETTINGS: OllamaChatSettings = {
 	baseUrl: "http://localhost:11434",
+	allowRemoteHost: false,
 	model: "",
 	systemPrompt: DEFAULT_SYSTEM_PROMPT,
 	temperature: 0.7,
@@ -104,13 +111,25 @@ export function mergeSettings(
 	partial: Partial<OllamaChatSettings> | null | undefined,
 ): OllamaChatSettings {
 	if (!partial) return { ...DEFAULT_SETTINGS };
-	return {
+	const merged: OllamaChatSettings = {
 		...DEFAULT_SETTINGS,
 		...partial,
 		slashCommands: partial.slashCommands ?? DEFAULT_SETTINGS.slashCommands,
 		modelContextLimits:
 			partial.modelContextLimits ?? DEFAULT_SETTINGS.modelContextLimits,
 	};
+	// Grandfather existing remote setups: if we're upgrading from a version
+	// that predates the egress flag (`allowRemoteHost` absent) and the saved
+	// server is already non-local, keep it working instead of silently blocking
+	// the user's configured LAN host. Fresh installs keep the private default.
+	if (
+		partial.allowRemoteHost === undefined &&
+		typeof partial.baseUrl === "string" &&
+		!isLoopbackUrl(partial.baseUrl)
+	) {
+		merged.allowRemoteHost = true;
+	}
+	return merged;
 }
 
 export function contextLimitForModel(

@@ -398,7 +398,8 @@ Open **Settings → Ollama Notes Chat** to configure everything. Sections are li
 | Setting | Default | Notes |
 |---|---|---|
 | **Base URL** | `http://localhost:11434` | Full URL including scheme and port. Must start with `http://` or `https://`. For a LAN server: `http://192.168.1.50:11434`. |
-| **Test connection** | — | Pings `/api/tags` to verify the server is reachable and lists available models. Run this whenever you change the URL. The status shows "Connected — N models available" on success. |
+| **Allow data to leave this computer** | Off | Privacy guard. **Off:** the plugin only connects to a server on this same computer (`localhost` / `127.x` / `::1`), so your note content never leaves the machine — a non-local Base URL is refused with a clear error. **On:** allows connecting to a server on another machine (e.g. a LAN Ollama host); your note content is sent there. *Existing setups with a LAN Base URL are auto-enabled on upgrade so nothing breaks.* |
+| **Test connection** | — | Pings `/api/tags` to verify the server is reachable and lists available models. Run this whenever you change the URL. The status shows "Connected — N models available" on success. (If the privacy guard above is off and your Base URL is non-local, the test reports that it's blocked.) |
 | **Model** | (empty) | Chat model to use. Populated from the server after a successful test. Click the refresh icon to reload the list without running the full test. |
 
 **What to expect when Base URL is wrong:** All chat requests fail with a network error. The token bar will show no limit (it falls back to the default context limit). Run Test connection to verify.
