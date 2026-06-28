@@ -2,7 +2,7 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
-## [Unreleased]
+## [0.7.18] — 2026-06-28
 
 Bug fixes surfaced by a full button-by-button UI audit. No schema or settings change.
 
