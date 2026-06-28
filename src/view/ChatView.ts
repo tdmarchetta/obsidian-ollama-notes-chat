@@ -109,6 +109,11 @@ export class ChatView extends ItemView {
 		this.titleEl.setAttr("tabindex", "0");
 		this.titleEl.addEventListener("click", () => this.startTitleRename());
 		this.titleEl.addEventListener("keydown", (evt) => {
+			// Only act on keys aimed at the button itself. The inline rename
+			// <input> is a child of this element, so without this guard a space
+			// typed while renaming bubbles up here, gets preventDefault()'d, and
+			// restarts the rename — making multi-word titles impossible to type.
+			if (evt.target !== this.titleEl) return;
 			if (evt.key === "Enter" || evt.key === " ") {
 				evt.preventDefault();
 				this.startTitleRename();
@@ -1017,12 +1022,22 @@ export class ChatView extends ItemView {
 	}
 
 	private insertIntoNote(m: Message): void {
-		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		// This view lives in a sidebar, so by the time the button is clicked the
+		// sidebar is the active leaf and getActiveViewOfType(MarkdownView) returns
+		// null. Fall back to the most-recently-active main-area leaf so the insert
+		// targets the note the user was last editing.
+		const view =
+			this.app.workspace.getActiveViewOfType(MarkdownView) ?? this.recentMarkdownView();
 		if (!view) {
 			new Notice("No active note to insert into");
 			return;
 		}
 		view.editor.replaceSelection(m.content);
+	}
+
+	private recentMarkdownView(): MarkdownView | null {
+		const leaf = this.app.workspace.getMostRecentLeaf();
+		return leaf?.view instanceof MarkdownView ? leaf.view : null;
 	}
 
 	private async regenerate(m: Message): Promise<void> {
@@ -1117,6 +1132,13 @@ export class ChatView extends ItemView {
 			onSelect: (id) => void this.switchToConversation(id),
 			onRename: (id, title) => {
 				void this.plugin.renameConversation(id, title);
+				// The store update alone doesn't refresh the open view's in-memory
+				// conversation, so the header would stay stale when the active chat
+				// is renamed from the drawer. Sync it here.
+				if (id === this.conv.id) {
+					this.conv.setTitle(title.trim());
+					this.refreshTitle();
+				}
 			},
 			onDelete: (id) => void this.deleteConversationFromView(id),
 		});

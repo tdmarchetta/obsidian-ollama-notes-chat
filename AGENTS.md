@@ -38,7 +38,7 @@ Obsidian right-sidebar plugin that chats with your notes via a remote Ollama ser
 - **Conversations** — `src/chat/`: `Conversation`, `ConversationStore`, `ExportConversation`/`SaveAsNote`, `SlashCommands`.
 - **Ollama I/O** — `src/ollama/OllamaClient.ts`: `fetch`-streamed `/api/chat` (NDJSON), `requestUrl` `/api/embed`+`/api/tags`; parses tool calls.
 - **Context** — `src/context/NoteContext.ts`: builds the context block (active note / selection / one-hop links / retrieved passages); `formatCitation` path-qualifies duplicate basenames.
-- **RAG** — `src/rag/`: `Chunker` (heading-first), `VectorStore` (flat JSON `index.json`, cosine top-K), `Indexer` (vault walk, mtime-diff, debounced re-embed).
+- **RAG** — `src/rag/`: `Chunker` (heading-first), `VectorStore` (flat JSON `index.json`, cosine top-K), `Indexer` (vault walk, mtime-diff, debounced re-embed). **Perf gotcha:** `VectorStore.save()` re-serializes the *whole* `index.json` synchronously on every change; on a large vault (≈3.8k notes ≈ 530 MB) over slow/network storage (e.g. the SynologyVol mount) a save can freeze the renderer for tens of seconds, and bulk file mutations (e.g. deleting several indexed notes) fire saves back-to-back. If the UI goes blank/unresponsive, recover via **View → Force Reload** (renderer hotkeys like ⌘P won't respond, but the menu bar is main-process). Throttled/async save is a known follow-up.
 - **Rewrite** — `src/rewrite/`: `RewriteCommand`, `DiffView` (CM6 `Decoration.replace`), `MyersDiff`.
 - **Tools** — `src/tools/`: `ToolLoop` (opt-in), `VaultTools` (pure reads).
 - **TTS** — `src/tts/`: `SpeechPlayer`, `markdownToPlainText`.

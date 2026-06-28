@@ -175,6 +175,10 @@ export class HistoryDrawer {
 
 		rowEl.addEventListener("click", () => this.cb.onSelect(row.id));
 		rowEl.addEventListener("keydown", (evt) => {
+			// Ignore keys from the inline rename <input> (which replaces the title
+			// element inside this row). Otherwise Space activates row-select and
+			// never reaches the input, so renamed titles can't contain spaces.
+			if (evt.target !== rowEl) return;
 			if (evt.key === "Enter" || evt.key === " ") {
 				evt.preventDefault();
 				this.cb.onSelect(row.id);
