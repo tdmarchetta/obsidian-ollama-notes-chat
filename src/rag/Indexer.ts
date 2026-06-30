@@ -19,6 +19,9 @@ type ProgressListener = (p: IndexProgress) => void;
 const EMBED_BATCH = 20;
 const SAVE_EVERY_FILES = 50;
 const DEBOUNCE_MS = 2000;
+// Coalesce index writes from rapid per-file events; each save() re-serializes
+// the entire index.json synchronously, so one write per file freezes the UI.
+const SAVE_DEBOUNCE_MS = 1000;
 
 export class Indexer {
 	private app: App;
@@ -32,6 +35,7 @@ export class Indexer {
 	private progress: IndexProgress = { phase: "idle", indexed: 0, total: 0 };
 
 	private debounceTimers: Map<string, number> = new Map();
+	private saveTimer: number | null = null;
 
 	constructor(
 		app: App,
@@ -107,13 +111,27 @@ export class Indexer {
 
 	removeFile(path: string): void {
 		if (this.store.remove(path)) {
-			void this.store.save();
+			this.scheduleSave();
 		}
 	}
 
 	renameFile(oldPath: string, newPath: string): void {
 		this.store.rename(oldPath, newPath);
-		void this.store.save();
+		this.scheduleSave();
+	}
+
+	// Debounced, coalesced index persistence for per-file events (deletes/
+	// renames). Deleting several notes used to fire one full ~500 MB
+	// serialize+write each, back-to-back, freezing the renderer on a large
+	// vault over slow storage; a burst now collapses into a single write.
+	private scheduleSave(): void {
+		if (this.saveTimer !== null) return;
+		this.saveTimer = window.setTimeout(() => {
+			this.saveTimer = null;
+			void this.store.save().catch((err) => {
+				console.warn("[ollama-notes-chat] index save failed", err);
+			});
+		}, SAVE_DEBOUNCE_MS);
 	}
 
 	scheduleFileUpdate(file: TFile): void {
@@ -134,6 +152,10 @@ export class Indexer {
 	cancelDebounced(): void {
 		for (const h of this.debounceTimers.values()) window.clearTimeout(h);
 		this.debounceTimers.clear();
+		if (this.saveTimer !== null) {
+			window.clearTimeout(this.saveTimer);
+			this.saveTimer = null;
+		}
 	}
 
 	private async ensureCompatible(): Promise<void> {

@@ -2,6 +2,11 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
+## [Unreleased]
+
+### Changed
+- **Coalesced RAG index writes.** `VectorStore.save()` re-serializes the entire `index.json` synchronously, so the per-file delete/rename handlers firing one write each meant deleting several indexed notes ran back-to-back ~500 MB serializations that froze the renderer on a large vault over slow/network storage. `Indexer` now debounces these per-file-event saves into a single write (`scheduleSave`, 1 s). Full reindex keeps its own batched checkpoints. (A fully async/off-thread serialize remains a larger follow-up.)
+
 ## [0.7.18] — 2026-06-28
 
 Bug fixes surfaced by a full button-by-button UI audit. No schema or settings change.
