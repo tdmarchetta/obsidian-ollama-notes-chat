@@ -1,6 +1,6 @@
 # Ollama Notes Chat — User Guide
 
-**Version 0.7.14** · Personal-use, local-first chat with your Obsidian vault via a remote Ollama server.
+**Version 0.7.19** · Personal-use, local-first chat with your Obsidian vault via a remote Ollama server.
 
 ---
 
@@ -71,10 +71,11 @@ While a response is streaming, the send button becomes a **stop button** — cli
 
 Each message bubble has a small toolbar that appears on hover:
 
-- **Insert** — pastes the AI response text at your cursor in the active editor.
+- **Insert** — pastes the AI response text at your cursor in the note you were last editing.
 - **Regenerate** — removes the last assistant response and re-sends your previous message, letting you get a fresh reply.
 - **Stats** — opens the Stats modal showing token counts and Ollama timing for that specific message.
 - **Copy** — copies raw Markdown to the clipboard.
+- **Speak** — reads the response aloud with your system voice; click again to stop. Hidden when **Enable text-to-speech** is off.
 
 ### Token budget bar
 
@@ -481,6 +482,14 @@ A list of all your slash commands. Each row has:
 - **Delete** — trash icon removes the command.
 
 Changes save automatically on blur. New commands are added with the "Add command" button at the bottom.
+
+---
+
+### Text-to-speech
+
+| Setting | Default | Notes |
+|---|---|---|
+| **Enable text-to-speech** | On | Shows a **Speak** button on each assistant response. Click it to read the reply aloud with your system voice; click again to stop. Uses the browser's built-in speech synthesis — nothing leaves your machine and no API key is needed. Turn this off to hide the button. |
 
 ---
 
