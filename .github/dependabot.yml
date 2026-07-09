@@ -14,6 +14,15 @@ updates:
     # updates bypass cooldown.
     cooldown:
       default-days: 14
+    # The typescript-eslint packages must move as a set: bumping
+    # @typescript-eslint/eslint-plugin on its own fails `npm ci` with ERESOLVE,
+    # because typescript-eslint pins an exactly-matching parser version. Group
+    # them so dependabot opens one mergeable PR instead of three that conflict.
+    groups:
+      typescript-eslint:
+        patterns:
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
 
   - package-ecosystem: github-actions
     directory: "/"

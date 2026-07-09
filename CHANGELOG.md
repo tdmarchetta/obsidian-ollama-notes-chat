@@ -2,6 +2,12 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
+## [Unreleased]
+
+### Internal
+- **`actions/checkout` v6 → v7** (#24) and **`@types/node` 20 → 26.0.1** (#36). Dev/CI only — neither is bundled into `main.js`. The lockfile pins `@types/node` **26.0.1** rather than the caret's float target 26.1.1, which was published a day earlier and is inside the 14-day cooldown.
+- **`dependabot.yml` now groups the `typescript-eslint` packages** into one PR. Bumping `@typescript-eslint/eslint-plugin` alone fails `npm ci` with `ERESOLVE` — its `parser` peer must match exactly, and `eslint-plugin-obsidianmd` pulls a transitive `typescript-eslint` — so dependabot was generating three mutually unmergeable PRs (#37/#38/#39).
+
 ## [0.7.19] — 2026-07-09
 
 Performance + documentation. No schema or settings change.
