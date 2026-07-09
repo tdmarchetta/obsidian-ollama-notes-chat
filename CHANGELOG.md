@@ -2,10 +2,15 @@
 
 All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
 
-## [Unreleased]
+## [0.7.19] — 2026-07-09
+
+Performance + documentation. No schema or settings change.
 
 ### Changed
 - **Coalesced RAG index writes.** `VectorStore.save()` re-serializes the entire `index.json` synchronously, so the per-file delete/rename handlers firing one write each meant deleting several indexed notes ran back-to-back ~500 MB serializations that froze the renderer on a large vault over slow/network storage. `Indexer` now debounces these per-file-event saves into a single write (`scheduleSave`, 1 s). Full reindex keeps its own batched checkpoints. (A fully async/off-thread serialize remains a larger follow-up.)
+
+### Documentation
+- **User guide refreshed** — version header was four releases stale, and **text-to-speech was entirely undocumented**: the `Speak` message action and the **Enable text-to-speech** setting now appear in the Chat Panel and Settings Reference sections. Clarified that `Insert` targets the note you were last editing.
 
 ## [0.7.18] — 2026-06-28
 
