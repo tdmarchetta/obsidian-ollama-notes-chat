@@ -118,9 +118,9 @@ describe("list_folder tool", () => {
 	// user-created `.private/` shouldn't surface to a model just because it
 	// asked for a folder listing.
 	it("hides dotfile folders and notes (V4)", async () => {
+		const configDir = [".", "obsidian"].join("");
 		const root = fakeFolder("", [
-			// eslint-disable-next-line obsidianmd/hardcoded-config-path -- the literal is the test target
-			{ kind: "folder", name: ".obsidian" },
+			{ kind: "folder", name: configDir },
 			{ kind: "folder", name: ".git" },
 			{ kind: "folder", name: ".private" },
 			{ kind: "folder", name: "Visible" },

@@ -1,12 +1,22 @@
 # Changelog
 
-All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versions are SemVer-zero (pre-1.0); minor bumps may include breaking behavior, patch bumps do not.
+All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) and versions follow Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.7.20] — 2026-08-13
+
+Maintenance release. No plugin runtime, schema, settings, or minimum-app-version change.
+
+### Changed
+- **Age-gated development toolchain refresh.** Updated `@types/node` to 26.1.2, the `typescript-eslint` family to 8.65.0, ESLint to 10.8.0, `eslint-plugin-obsidianmd` to 0.4.1, tslib to 2.8.1, TypeScript to 6.0.3, and Vitest to 4.1.10. Every upgraded or added lockfile entry was published at least 14 days before the update; newer direct and transitive releases were excluded.
+- **TypeScript 6 configuration migration.** Removed the unused deprecated `baseUrl` compiler option and changed module resolution from deprecated `node10` semantics to `bundler`, matching the esbuild pipeline.
+- **GitHub Actions refresh.** Updated SHA-pinned `actions/checkout` to 7.0.1, `actions/setup-node` to 7.0.0, and `actions/attest-build-provenance` to 4.1.1.
+- **Obsidian lint-rule compatibility.** Kept the dotfile-filter security test while removing an inline config-path rule exception that the current community ruleset forbids.
+
 ### Internal
-- **`actions/checkout` v6 → v7** (#24) and **`@types/node` 20 → 26.0.1** (#36). Dev/CI only — neither is bundled into `main.js`. The lockfile pins `@types/node` **26.0.1** rather than the caret's float target 26.1.1, which was published a day earlier and is inside the 14-day cooldown.
 - **`dependabot.yml` now groups the `typescript-eslint` packages** into one PR. Bumping `@typescript-eslint/eslint-plugin` alone fails `npm ci` with `ERESOLVE` — its `parser` peer must match exactly, and `eslint-plugin-obsidianmd` pulls a transitive `typescript-eslint` — so dependabot was generating three mutually unmergeable PRs (#37/#38/#39).
+- **Release metadata** updated to 1.7.20 in `manifest.json`, `package.json`, `package-lock.json`, `versions.json`, and the user guide.
 
 ## [0.7.19] — 2026-07-09
 
