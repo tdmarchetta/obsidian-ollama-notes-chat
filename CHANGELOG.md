@@ -4,14 +4,14 @@ All notable changes to Ollama Notes Chat. Format loosely follows [Keep a Changel
 
 ## [Unreleased]
 
-## [1.7.20] — 2026-08-13
+## [1.7.20] — 2026-08-26
 
 Maintenance release. No plugin runtime, schema, settings, or minimum-app-version change.
 
 ### Changed
-- **Age-gated development toolchain refresh.** Updated `@types/node` to 26.1.2, the `typescript-eslint` family to 8.65.0, ESLint to 10.8.0, `eslint-plugin-obsidianmd` to 0.4.1, tslib to 2.8.1, TypeScript to 6.0.3, and Vitest to 4.1.10. Every upgraded or added lockfile entry was published at least 14 days before the update; newer direct and transitive releases were excluded.
+- **Age-gated development toolchain refresh.** Updated `@types/node` to 26.2.0, the `typescript-eslint` family to 8.67.0, esbuild to 0.28.2, ESLint to 10.8.1, `eslint-plugin-obsidianmd` to 0.4.1, tslib to 2.8.1, TypeScript to 6.0.3, and Vitest to 4.1.10. Every upgraded or added lockfile entry was published at least 14 days before the update; newer direct and transitive releases were excluded.
 - **TypeScript 6 configuration migration.** Removed the unused deprecated `baseUrl` compiler option and changed module resolution from deprecated `node10` semantics to `bundler`, matching the esbuild pipeline.
-- **GitHub Actions refresh.** Updated SHA-pinned `actions/checkout` to 7.0.1, `actions/setup-node` to 7.0.0, and `actions/attest-build-provenance` to 4.1.1.
+- **GitHub Actions refresh.** Updated SHA-pinned `actions/checkout` to 7.0.1, `actions/setup-node` to 7.0.0, and `actions/attest-build-provenance` to 4.2.2.
 - **Obsidian lint-rule compatibility.** Kept the dotfile-filter security test while removing an inline config-path rule exception that the current community ruleset forbids.
 
 ### Internal
