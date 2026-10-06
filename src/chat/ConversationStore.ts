@@ -115,12 +115,12 @@ export class ConversationStore {
 
 	/**
 	 * Rehydrate the active snapshot as a Conversation class instance.
-	 * Returns a fresh empty Conversation if there's no active or the active
-	 * is missing.
+	 * Creates and registers an empty active snapshot when none exists, so
+	 * the first chat is shared by views and remains active when saved.
 	 */
 	hydrateActive(): Conversation {
-		const snap = this.getActive();
-		return snap ? Conversation.fromSnapshot(snap) : new Conversation();
+		const snap = this.getActive() ?? this.createEmpty();
+		return Conversation.fromSnapshot(snap);
 	}
 
 	/** What goes to data.json. Empty conversations are filtered out. */

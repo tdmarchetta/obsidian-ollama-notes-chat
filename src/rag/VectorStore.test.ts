@@ -28,6 +28,9 @@ class FakeAdapter implements Partial<DataAdapter> {
 		if (v === undefined) {
 			return Promise.reject(new Error(`not found: ${oldPath}`));
 		}
+		if (this.files.has(newPath)) {
+			return Promise.reject(new Error(`Destination file already exists: ${newPath}`));
+		}
 		this.files.delete(oldPath);
 		this.files.set(newPath, v);
 		return Promise.resolve();
@@ -52,6 +55,9 @@ class FaultyAdapter extends FakeAdapter {
 		if (v === undefined) {
 			return Promise.reject(new Error(`not found: ${oldPath}`));
 		}
+		if (this.files.has(newPath)) {
+			return Promise.reject(new Error(`Destination file already exists: ${newPath}`));
+		}
 		this.files.delete(oldPath);
 		this.files.set(newPath, v);
 		return Promise.resolve();
@@ -61,6 +67,47 @@ class FaultyAdapter extends FakeAdapter {
 const PATH = "index.json";
 
 describe("VectorStore.save", () => {
+	it("serializes overlapping writes and persists the latest state", async () => {
+		const adapter = new FakeAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await store.save();
+		store.upsert("a.md", [{ text: "a", embedding: [1] }], 1);
+		const first = store.save();
+		store.upsert("b.md", [{ text: "b", embedding: [1] }], 2);
+		await Promise.all([first, store.save()]);
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.knownPaths()).toEqual(["a.md", "b.md"]);
+		expect([...adapter.files.keys()]).toEqual([PATH]);
+	});
+
+	it("replaces a stale backup left after a successful rename", async () => {
+		const adapter = new FakeAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await store.save();
+		adapter.files.set(`${PATH}.bak`, adapter.files.get(PATH)!);
+		store.upsert("new.md", [{ text: "new", embedding: [1] }], 2);
+		await store.save();
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.hasNote("new.md")).toBe(true);
+		expect(adapter.files.has(`${PATH}.bak`)).toBe(false);
+	});
+
+	it("allows a later save after a failed transaction", async () => {
+		const adapter = new FaultyAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await store.save();
+		adapter.failOnRename = adapter.renameCalls.length + 2;
+		await expect(store.save()).rejects.toThrow(/simulated rename failure/);
+		adapter.failOnRename = null;
+		store.upsert("retry.md", [{ text: "retry", embedding: [1] }], 3);
+		await store.save();
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.hasNote("retry.md")).toBe(true);
+	});
+
 	it("writes a fresh file when none exists", async () => {
 		const adapter = new FakeAdapter();
 		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
@@ -145,6 +192,23 @@ describe("VectorStore.save", () => {
 });
 
 describe("VectorStore.load", () => {
+	it("recovers the backup when a crash interrupted the final rename", async () => {
+		const adapter = new FakeAdapter();
+		const original = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		original.setEmbedderModel("e", 1);
+		original.upsert("saved.md", [{ text: "saved", embedding: [1] }], 7);
+		await original.save();
+		await adapter.rename(PATH, `${PATH}.bak`);
+		adapter.files.set(`${PATH}.tmp`, "interrupted write");
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.hasNote("saved.md")).toBe(true);
+		expect(loaded.getEmbedderModel()).toBe("e");
+		expect(adapter.files.has(PATH)).toBe(true);
+		await loaded.save();
+		expect([...adapter.files.keys()]).toEqual([PATH]);
+	});
+
 	it("silently drops chunks with non-finite embedding values", async () => {
 		const adapter = new FakeAdapter();
 		adapter.files.set(

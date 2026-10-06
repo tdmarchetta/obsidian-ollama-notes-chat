@@ -12,6 +12,8 @@ export default defineConfig({
 		include: ["src/**/*.test.ts", "test/**/*.test.ts"],
 	},
 	resolve: {
+		// Prefer source over the generated main.js when testing after a build.
+		extensions: [".ts", ".tsx", ".mts", ".mjs", ".js", ".jsx", ".json"],
 		alias: {
 			obsidian: path.resolve(here, "test/obsidian-stub.ts"),
 		},
