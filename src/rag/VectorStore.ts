@@ -38,6 +38,8 @@ export class VectorStore {
 	private embedderModel = "";
 	private embeddingDim = 0;
 	private loaded = false;
+	// All writers share the same temporary and backup paths.
+	private saveQueue: Promise<void> = Promise.resolve();
 	// Per-chunk L2 norms, memoized lazily and keyed by the chunk object so
 	// entries GC away when a note is re-chunked (upsert/load build fresh
 	// IndexedChunk objects). Never serialized — index.json is unaffected.
@@ -68,6 +70,7 @@ export class VectorStore {
 
 	async load(): Promise<void> {
 		this.loaded = true;
+		await this.restoreBackupIfMissing();
 		if (!(await this.adapter.exists(this.path))) return;
 		try {
 			const raw = await this.adapter.read(this.path);
@@ -102,7 +105,22 @@ export class VectorStore {
 		}
 	}
 
-	async save(): Promise<void> {
+	save(): Promise<void> {
+		const saved = this.saveQueue.then(() => this.saveNow());
+		// A failed transaction must not prevent subsequent saves from retrying.
+		this.saveQueue = saved.catch(() => {});
+		return saved;
+	}
+
+	private async restoreBackupIfMissing(): Promise<void> {
+		const backup = `${this.path}.bak`;
+		if (!(await this.adapter.exists(this.path)) && (await this.adapter.exists(backup))) {
+			await this.adapter.rename(backup, this.path);
+		}
+	}
+
+	private async saveNow(): Promise<void> {
+		await this.restoreBackupIfMissing();
 		const data: VectorStoreFile = {
 			schemaVersion: CURRENT_INDEX_SCHEMA,
 			embedderModel: this.embedderModel,
@@ -121,7 +139,12 @@ export class VectorStore {
 		// of the vault on next launch.
 		await this.adapter.write(tmp, serialized);
 		const hadOld = await this.adapter.exists(this.path);
-		if (hadOld) await this.adapter.rename(this.path, backup);
+		if (hadOld) {
+			// A crash after tmp became the live file can leave the previous
+			// backup behind. Remove it only while a live copy still exists.
+			if (await this.adapter.exists(backup)) await this.adapter.remove(backup);
+			await this.adapter.rename(this.path, backup);
+		}
 		try {
 			await this.adapter.rename(tmp, this.path);
 		} catch (err) {

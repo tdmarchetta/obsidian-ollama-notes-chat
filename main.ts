@@ -1,4 +1,4 @@
-import { Editor, Menu, Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
+import { Editor, Menu, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { OllamaClient } from "./src/ollama/OllamaClient";
 import { ChatView, VIEW_TYPE_CHAT } from "./src/view/ChatView";
 import { OllamaChatSettings, mergeSettings } from "./src/settings/Settings";
@@ -91,23 +91,7 @@ export default class OllamaChatPlugin extends Plugin {
 		this.addCommand({
 			id: "clear-conversation",
 			name: "Clear active conversation",
-			callback: () => {
-				const active = this.store.getActive();
-				if (!active) {
-					new Notice("No active conversation");
-					return;
-				}
-				const cleared: ConversationSnapshot = {
-					...active,
-					title: active.titleManuallySet ? active.title : "",
-					messages: [],
-					updatedAt: Date.now(),
-				};
-				this.store.upsert(cleared);
-				void this.savePersisted();
-				this.notifyViews();
-				new Notice("Active conversation cleared");
-			},
+			callback: () => void this.clearConversationInActiveView(),
 		});
 
 		this.addCommand({
@@ -295,11 +279,14 @@ export default class OllamaChatPlugin extends Plugin {
 
 	private async createConversationAndFocus(): Promise<void> {
 		await this.activateView();
-		await this.createConversation();
-		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)) {
-			const view = leaf.view;
-			if (view instanceof ChatView) view.focusInput();
-		}
+		const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0]?.view;
+		if (view instanceof ChatView) await view.newChat();
+	}
+
+	private async clearConversationInActiveView(): Promise<void> {
+		await this.activateView();
+		const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CHAT)[0]?.view;
+		if (view instanceof ChatView) view.clearConversation();
 	}
 
 	private async openHistoryInActiveView(): Promise<void> {

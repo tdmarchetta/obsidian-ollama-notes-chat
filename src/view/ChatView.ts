@@ -51,6 +51,7 @@ export class ChatView extends ItemView {
 
 	private abortController: AbortController | null = null;
 	private streaming = false;
+	private transitioning = false;
 
 	private titleEl!: HTMLElement;
 	private subheaderEl!: HTMLElement;
@@ -720,6 +721,7 @@ export class ChatView extends ItemView {
 	}
 
 	private async sendMessage(): Promise<void> {
+		if (this.streaming || this.transitioning) return;
 		const rawInput = this.inputEl.value.trim();
 		if (rawInput.length === 0) return;
 
@@ -729,88 +731,93 @@ export class ChatView extends ItemView {
 			return;
 		}
 
-		this.completionsEl.hide();
-
-		// Expand slash command if present.
-		const match = parseSlash(rawInput, settings.slashCommands);
-		const userVisibleText = rawInput;
-		const llmText = match
-			? expandTemplate(match.command.template, { input: match.rest })
-			: rawInput;
-
-		// Build context.
-		const ctx = await buildContext(this.app, this.contextMode, settings, {
-			query: llmText,
-			vectorStore: this.plugin.vectorStore,
-			ollama: this.plugin.ollama,
-		});
-		if (this.contextMode === "retrieval") {
-			if (ctx.retrievalStatus === "empty-index") {
-				new Notice("Index is empty — run reindex in settings.", 5000);
-			} else if (ctx.retrievalStatus === "no-model") {
-				new Notice("Pick an embedder model in settings first.", 5000);
-			} else if (ctx.retrievalStatus === "embed-failed") {
-				new Notice("Embedding failed — check your server is reachable.", 5000);
-			}
-		}
-		if (this.contextMode === "current-folder" && ctx.truncated) {
-			new Notice(
-				`Folder too large — context truncated to ${settings.truncationLimit.toLocaleString()} characters.`,
-				5000,
-			);
-		}
-		const sourcePath = ctx.sourceNote?.path;
-
-		// Per-note frontmatter override.
-		const override = getPerNoteOverride(this.app, ctx.sourceNote);
-		const model = override.model ?? settings.model;
-		const systemPrompt = override.systemPrompt ?? settings.systemPrompt;
-		const toolsActive =
-			settings.toolsEnabled && override.toolsDisabled !== true;
-
-		// Add user message.
-		const userMsg = this.conv.addUser(userVisibleText, {
-			contextSourceNote: sourcePath,
-			contextMode: this.contextMode,
-		});
-		this.renderMessage(userMsg);
-		this.refreshEmptyState();
-
-		// Clear input.
-		this.inputEl.value = "";
-		this.autosizeInput();
-		this.updateStatus();
-
-		// Build messages payload.
-		const systemMessages: ChatMessage[] = [];
-		if (systemPrompt && systemPrompt.trim().length > 0) {
-			systemMessages.push({ role: "system", content: systemPrompt });
-		}
-		if (ctx.text.length > 0) {
-			systemMessages.push({ role: "system", content: ctx.text });
-		}
-		if (ctx.truncated) {
-			new Notice("Note context was truncated — content may be incomplete.", 4000);
-		}
-		const history: ChatMessage[] = this.conv.messages
-			.filter((m) => m.role !== "system" && m !== userMsg)
-			.map(messageToChatMessage);
-		const payload: ChatMessage[] = [
-			...systemMessages,
-			...history,
-			{ role: "user", content: llmText },
-		];
-
-		// Assistant placeholder.
-		let assistant = this.conv.addAssistant("", { model });
-		this.renderMessage(assistant);
-		this.scrollToBottom();
-
-		// Stream.
+		// Reserve the request before context reads/embeddings yield. The same
+		// guard protects send, clear, switch and new-chat throughout preparation.
 		this.streaming = true;
+		const controller = new AbortController();
+		this.abortController = controller;
+		const contextMode = this.contextMode;
+		let assistant: Message | undefined;
 		this.setSendButtonState("stop");
-		this.abortController = new AbortController();
 		try {
+			this.completionsEl.hide();
+
+			// Expand slash command if present.
+			const match = parseSlash(rawInput, settings.slashCommands);
+			const userVisibleText = rawInput;
+			const llmText = match
+				? expandTemplate(match.command.template, { input: match.rest })
+				: rawInput;
+
+			// Build context.
+			const ctx = await buildContext(this.app, contextMode, settings, {
+				query: llmText,
+				vectorStore: this.plugin.vectorStore,
+				ollama: this.plugin.ollama,
+			});
+			if (controller.signal.aborted) return;
+			if (contextMode === "retrieval") {
+				if (ctx.retrievalStatus === "empty-index") {
+					new Notice("Index is empty — run reindex in settings.", 5000);
+				} else if (ctx.retrievalStatus === "no-model") {
+					new Notice("Pick an embedder model in settings first.", 5000);
+				} else if (ctx.retrievalStatus === "embed-failed") {
+					new Notice("Embedding failed — check your server is reachable.", 5000);
+				}
+			}
+			if (contextMode === "current-folder" && ctx.truncated) {
+				new Notice(
+					`Folder too large — context truncated to ${settings.truncationLimit.toLocaleString()} characters.`,
+					5000,
+				);
+			}
+			const sourcePath = ctx.sourceNote?.path;
+
+			// Per-note frontmatter override.
+			const override = getPerNoteOverride(this.app, ctx.sourceNote);
+			const model = override.model ?? settings.model;
+			const systemPrompt = override.systemPrompt ?? settings.systemPrompt;
+			const toolsActive =
+				settings.toolsEnabled && override.toolsDisabled !== true;
+
+			// Add user message.
+			const userMsg = this.conv.addUser(userVisibleText, {
+				contextSourceNote: sourcePath,
+				contextMode,
+			});
+			this.renderMessage(userMsg);
+			this.refreshEmptyState();
+
+			// Clear input.
+			this.inputEl.value = "";
+			this.autosizeInput();
+			this.updateStatus();
+
+			// Build messages payload.
+			const systemMessages: ChatMessage[] = [];
+			if (systemPrompt && systemPrompt.trim().length > 0) {
+				systemMessages.push({ role: "system", content: systemPrompt });
+			}
+			if (ctx.text.length > 0) {
+				systemMessages.push({ role: "system", content: ctx.text });
+			}
+			if (ctx.truncated) {
+				new Notice("Note context was truncated — content may be incomplete.", 4000);
+			}
+			const history: ChatMessage[] = this.conv.messages
+				.filter((m) => m.role !== "system" && m !== userMsg)
+				.map(messageToChatMessage);
+			const payload: ChatMessage[] = [
+				...systemMessages,
+				...history,
+				{ role: "user", content: llmText },
+			];
+
+			// Assistant placeholder.
+			assistant = this.conv.addAssistant("", { model });
+			this.renderMessage(assistant);
+			this.scrollToBottom();
+
 			if (toolsActive) {
 				const registry = buildVaultToolRegistry();
 				const loop = runToolLoop({
@@ -822,7 +829,7 @@ export class ChatView extends ItemView {
 					maxTokens: settings.maxTokens,
 					maxIterations: settings.toolsMaxIterations,
 					ctx: { app: this.app },
-					signal: this.abortController.signal,
+					signal: controller.signal,
 				});
 				for await (const evt of loop) {
 					if (evt.type === "iteration_start") {
@@ -871,7 +878,7 @@ export class ChatView extends ItemView {
 					model,
 					temperature: settings.temperature,
 					maxTokens: settings.maxTokens,
-					signal: this.abortController.signal,
+					signal: controller.signal,
 				})) {
 					if (evt.type === "delta") {
 						this.conv.appendToLast(evt.text);
@@ -883,25 +890,29 @@ export class ChatView extends ItemView {
 			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			if (this.abortController?.signal.aborted) {
-				this.conv.markLastStopped();
+			if (controller.signal.aborted) {
+				if (assistant) this.conv.markLastStopped();
 			} else {
-				this.conv.appendToLast(
-					`\n\n> **Error:** ${msg}\n\n_Check your settings and that the Ollama server is reachable._`,
-				);
+				if (assistant) {
+					this.conv.appendToLast(
+						`\n\n> **Error:** ${msg}\n\n_Check your settings and that the Ollama server is reachable._`,
+					);
+				}
 				new Notice(`Ollama error: ${msg}`, 6000);
 			}
 		} finally {
 			this.streaming = false;
 			this.abortController = null;
 			this.setSendButtonState("send");
-			this.flushMarkdownRender(assistant);
+			if (assistant) this.flushMarkdownRender(assistant);
 			this.updateStatus();
 			this.scrollToBottom();
 			this.refreshTitle();
-			void this.plugin.saveActiveConversation(this.conv);
-			this.historyDrawer?.scheduleRefresh();
-			this.maybeAutoSave();
+			if (assistant) {
+				void this.plugin.saveActiveConversation(this.conv);
+				this.historyDrawer?.scheduleRefresh();
+				this.maybeAutoSave();
+			}
 		}
 	}
 
@@ -936,7 +947,8 @@ export class ChatView extends ItemView {
 		}
 	}
 
-	private clearConversation(): void {
+	clearConversation(): void {
+		if (this.transitioning) return;
 		if (this.streaming) {
 			new Notice("Stop the response before clearing.");
 			return;
@@ -1149,21 +1161,28 @@ export class ChatView extends ItemView {
 		this.historyDrawer?.toggle();
 	}
 
-	private async newChat(): Promise<void> {
+	async newChat(): Promise<void> {
+		if (this.transitioning) return;
 		if (this.streaming) {
 			new Notice("Stop the response before starting a new chat.");
 			return;
 		}
-		await this.plugin.createConversation();
-		this.conv = this.plugin.store.hydrateActive();
-		this.renderAllMessages();
-		this.refreshTitle();
-		this.updateStatus();
-		this.historyDrawer?.scheduleRefresh();
-		this.focusInput();
+		this.transitioning = true;
+		try {
+			await this.plugin.createConversation();
+			this.conv = this.plugin.store.hydrateActive();
+			this.renderAllMessages();
+			this.refreshTitle();
+			this.updateStatus();
+			this.historyDrawer?.scheduleRefresh();
+			this.focusInput();
+		} finally {
+			this.transitioning = false;
+		}
 	}
 
 	private async switchToConversation(id: string): Promise<void> {
+		if (this.transitioning) return;
 		if (this.streaming) {
 			new Notice("Stop the response before switching.");
 			return;
@@ -1177,27 +1196,45 @@ export class ChatView extends ItemView {
 		if (this.conv.isEmpty) {
 			this.plugin.store.discardIfEmpty(currentId);
 		}
-		await this.plugin.switchConversation(id);
-		this.conv = this.plugin.store.hydrateActive();
-		this.renderAllMessages();
-		this.refreshTitle();
-		this.updateStatus();
-		this.historyDrawer?.close();
-		this.focusInput();
+		this.transitioning = true;
+		try {
+			await this.plugin.switchConversation(id);
+			this.conv = this.plugin.store.hydrateActive();
+			this.renderAllMessages();
+			this.refreshTitle();
+			this.updateStatus();
+			this.historyDrawer?.close();
+			this.focusInput();
+		} finally {
+			this.transitioning = false;
+		}
 	}
 
 	private async deleteConversationFromView(id: string): Promise<void> {
+		if (this.transitioning) return;
 		if (this.streaming && id === this.conv.id) {
 			new Notice("Stop the response before deleting.");
 			return;
 		}
-		const nextActive = await this.plugin.deleteConversation(id);
-		if (nextActive) await this.plugin.switchConversation(nextActive);
-		this.conv = this.plugin.store.hydrateActive();
-		this.renderAllMessages();
-		this.refreshTitle();
-		this.updateStatus();
-		this.historyDrawer?.scheduleRefresh();
+		const deletingCurrent = id === this.conv.id;
+		this.transitioning = true;
+		try {
+			const nextActive = await this.plugin.deleteConversation(id);
+			if (!deletingCurrent) {
+				// The live response is newer than its saved snapshot. Deleting an
+				// unrelated history entry must not rehydrate and discard that response.
+				this.historyDrawer?.scheduleRefresh();
+				return;
+			}
+			if (nextActive) await this.plugin.switchConversation(nextActive);
+			this.conv = this.plugin.store.hydrateActive();
+			this.renderAllMessages();
+			this.refreshTitle();
+			this.updateStatus();
+			this.historyDrawer?.scheduleRefresh();
+		} finally {
+			this.transitioning = false;
+		}
 	}
 
 	private maybeRehydrateActive(): void {

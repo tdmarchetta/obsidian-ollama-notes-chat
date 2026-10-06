@@ -29,6 +29,7 @@ class FakeAdapter {
 	async rename(oldPath: string, newPath: string): Promise<void> {
 		const v = this.files.get(oldPath);
 		if (v === undefined) throw new Error(`ENOENT: ${oldPath}`);
+		if (this.files.has(newPath)) throw new Error(`Destination file already exists: ${newPath}`);
 		this.files.set(newPath, v);
 		this.files.delete(oldPath);
 		return Promise.resolve();
@@ -51,6 +52,7 @@ function md(path: string, mtime: number): TFile {
 type EmbedFn = (model: string, texts: string[]) => Promise<number[][]>;
 
 interface Harness {
+	adapter: FakeAdapter;
 	indexer: Indexer;
 	store: VectorStore;
 	embed: Mock<EmbedFn>;
@@ -77,9 +79,10 @@ function makeHarness(settingsOverride: Partial<OllamaChatSettings> = {}): Harnes
 		embedderModel: "test-embed",
 		...settingsOverride,
 	};
-	const store = new VectorStore(new FakeAdapter() as unknown as DataAdapter, "idx/index.json");
+	const adapter = new FakeAdapter();
+	const store = new VectorStore(adapter as unknown as DataAdapter, "idx/index.json");
 	const indexer = new Indexer(app, ollama, settings, store);
-	return { indexer, store, embed, files, contents, settings };
+	return { adapter, indexer, store, embed, files, contents, settings };
 }
 
 function addNote(h: Harness, path: string, body: string, mtime: number): TFile {
@@ -183,6 +186,39 @@ describe("Indexer.start", () => {
 });
 
 describe("Indexer file events", () => {
+	it("persists debounced note edits so they survive a reload", async () => {
+		vi.useFakeTimers();
+		try {
+			const h = makeHarness();
+			const f = addNote(h, "a.md", "updated body", 9);
+			h.indexer.scheduleFileUpdate(f);
+			await vi.advanceTimersByTimeAsync(4000);
+			const loaded = new VectorStore(h.adapter as unknown as DataAdapter, "idx/index.json");
+			await loaded.load();
+			expect(loaded.getMtime("a.md")).toBe(9);
+			expect(loaded.topK([1, 0, 0], 1)[0]?.chunk.text).toBe("updated body");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("persists removal when a modified note becomes empty", async () => {
+		vi.useFakeTimers();
+		try {
+			const h = makeHarness();
+			h.store.upsert("a.md", [{ text: "old", embedding: [1, 0, 0] }], 1);
+			await h.store.save();
+			const f = addNote(h, "a.md", "", 9);
+			h.indexer.scheduleFileUpdate(f);
+			await vi.advanceTimersByTimeAsync(4000);
+			const loaded = new VectorStore(h.adapter as unknown as DataAdapter, "idx/index.json");
+			await loaded.load();
+			expect(loaded.hasNote("a.md")).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("indexFile ignores non-markdown files", async () => {
 		const h = makeHarness();
 		const f = md("image.png", 1);

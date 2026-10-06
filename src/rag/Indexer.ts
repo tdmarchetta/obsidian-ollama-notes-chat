@@ -107,6 +107,7 @@ export class Indexer {
 		if (file.extension !== "md") return;
 		if (!this.settings.embedderModel) return;
 		await this.embedAndStore(file);
+		this.scheduleSave();
 	}
 
 	removeFile(path: string): void {
@@ -120,8 +121,8 @@ export class Indexer {
 		this.scheduleSave();
 	}
 
-	// Debounced, coalesced index persistence for per-file events (deletes/
-	// renames). Deleting several notes used to fire one full ~500 MB
+	// Debounced, coalesced index persistence for per-file events (edits,
+	// deletes, and renames). Deleting several notes used to fire one full ~500 MB
 	// serialize+write each, back-to-back, freezing the renderer on a large
 	// vault over slow storage; a burst now collapses into a single write.
 	private scheduleSave(): void {
