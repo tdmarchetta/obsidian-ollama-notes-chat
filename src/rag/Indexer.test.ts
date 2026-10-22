@@ -23,6 +23,10 @@ class FakeAdapter {
 		this.files.set(path, data);
 		return Promise.resolve();
 	}
+	async append(path: string, data: string): Promise<void> {
+		this.files.set(path, (this.files.get(path) ?? "") + data);
+		return Promise.resolve();
+	}
 	async exists(path: string): Promise<boolean> {
 		return Promise.resolve(this.files.has(path));
 	}
