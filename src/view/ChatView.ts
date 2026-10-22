@@ -1053,17 +1053,22 @@ export class ChatView extends ItemView {
 	}
 
 	private async regenerate(m: Message): Promise<void> {
+		if (this.transitioning) return;
+		if (this.streaming) {
+			new Notice("Stop the response before regenerating.");
+			return;
+		}
 		// Only regen the last assistant message.
 		const last = this.conv.last;
 		if (!last || last.id !== m.id || last.role !== "assistant") {
 			new Notice("Can only regenerate the most recent response");
 			return;
 		}
-		this.conv.removeLast();
-		// Find the last user message to reuse as the prompt.
+		// Replace the entire last turn, including any intermediate tool calls
+		// and results, so stale results cannot precede the regenerated prompt.
 		const lastUser = [...this.conv.messages].reverse().find((mm) => mm.role === "user");
 		if (!lastUser) return;
-		this.conv.messages = this.conv.messages.filter((mm) => mm.id !== lastUser.id);
+		this.conv.messages = this.conv.messages.slice(0, this.conv.messages.indexOf(lastUser));
 		this.renderAllMessages();
 		this.inputEl.value = lastUser.content;
 		await this.sendMessage();

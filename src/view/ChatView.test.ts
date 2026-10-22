@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { App, WorkspaceLeaf } from "obsidian";
 import type OllamaChatPlugin from "../../main";
 import { ChatView } from "./ChatView";
-import { Conversation } from "../chat/Conversation";
+import { Conversation, type Message } from "../chat/Conversation";
 import { ConversationStore } from "../chat/ConversationStore";
 import { DEFAULT_SETTINGS } from "../settings/Settings";
 import { buildContext, type BuiltContext } from "../context/NoteContext";
@@ -17,6 +17,8 @@ interface ViewHarness {
 	conv: Conversation;
 	inputEl: { value: string };
 	streaming: boolean;
+	transitioning: boolean;
+	regenerate(message: Message): Promise<void>;
 	sendMessage(): Promise<void>;
 	stopGeneration(): void;
 	newChat(): Promise<void>;
@@ -145,4 +147,48 @@ it.each(["new", "switch", "delete"] as const)("preserves the draft while a %s ch
 	await transition;
 	expect(requests).toEqual([]);
 	expect(view.inputEl.value).toBe("question");
+});
+
+
+describe("regeneration guards", () => {
+	it.each(["streaming", "transitioning"] as const)("preserves messages and draft while %s", async (busyState) => {
+		const { view, requests } = setup();
+		view.conv.addUser("earlier question");
+		view.conv.addAssistant("earlier answer");
+		view.conv.addUser("current question");
+		const response = view.conv.addAssistant("partial answer");
+		view.inputEl.value = "unsent draft";
+		view[busyState] = true;
+		await view.regenerate(response);
+		expect(view.conv.messages.map((m) => m.content)).toEqual([
+			"earlier question", "earlier answer", "current question", "partial answer",
+		]);
+		expect(view.inputEl.value).toBe("unsent draft");
+		expect(requests).toEqual([]);
+	});
+});
+
+
+it("regenerates a tool-assisted turn without retaining its stale tool messages", async () => {
+	vi.mocked(buildContext).mockResolvedValue(emptyContext);
+	const { view, requests } = setup();
+	view.conv.addUser("earlier question");
+	view.conv.addAssistant("earlier answer");
+	view.conv.addUser("current question");
+	view.conv.addAssistant("checking the vault", {
+		toolCalls: [{ id: "lookup", name: "read_note", arguments: { path: "note.md" } }],
+	});
+	view.conv.addTool("lookup", "read_note", "stale tool result");
+	const response = view.conv.addAssistant("old final answer");
+	await view.regenerate(response);
+	expect(view.conv.messages.map((m) => m.content)).toEqual([
+		"earlier question", "earlier answer", "current question", "reply",
+	]);
+	expect(requests).toHaveLength(1);
+	expect(requests[0]).toMatchObject({ messages: [
+		{ role: "system", content: DEFAULT_SETTINGS.systemPrompt },
+		{ role: "user", content: "earlier question" },
+		{ role: "assistant", content: "earlier answer" },
+		{ role: "user", content: "current question" },
+	] });
 });
