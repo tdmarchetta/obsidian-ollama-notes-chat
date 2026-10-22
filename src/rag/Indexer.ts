@@ -36,6 +36,8 @@ export class Indexer {
 
 	private debounceTimers: Map<string, number> = new Map();
 	private saveTimer: number | null = null;
+	private generation = 0;
+	private fileJobs = new WeakMap<TFile, object>();
 
 	constructor(
 		app: App,
@@ -93,6 +95,7 @@ export class Indexer {
 	}
 
 	async reindexAll(): Promise<void> {
+		this.generation++;
 		if (this.running) {
 			this.cancel();
 			while (this.running) await sleep(50);
@@ -106,7 +109,7 @@ export class Indexer {
 	async indexFile(file: TFile): Promise<void> {
 		if (file.extension !== "md") return;
 		if (!this.settings.embedderModel) return;
-		await this.embedAndStore(file);
+		if (await this.embedAndStore(file)) this.scheduleSave();
 	}
 
 	removeFile(path: string): void {
@@ -116,12 +119,19 @@ export class Indexer {
 	}
 
 	renameFile(oldPath: string, newPath: string): void {
+		const pending = this.debounceTimers.get(oldPath);
+		if (pending !== undefined) window.clearTimeout(pending);
+		this.debounceTimers.delete(oldPath);
 		this.store.rename(oldPath, newPath);
 		this.scheduleSave();
+		// The old path invalidates in-flight embeddings; queue a replacement
+		// so an edited or newly indexed note does not stay stale after moving.
+		const file = this.app.vault.getAbstractFileByPath(newPath);
+		if (file instanceof TFile) this.scheduleFileUpdate(file);
 	}
 
-	// Debounced, coalesced index persistence for per-file events (deletes/
-	// renames). Deleting several notes used to fire one full ~500 MB
+	// Debounced, coalesced index persistence for per-file events (edits,
+	// deletes, and renames). Deleting several notes used to fire one full ~500 MB
 	// serialize+write each, back-to-back, freezing the renderer on a large
 	// vault over slow storage; a burst now collapses into a single write.
 	private scheduleSave(): void {
@@ -138,18 +148,21 @@ export class Indexer {
 		if (file.extension !== "md") return;
 		if (!this.settings.ragAutoIndex) return;
 		if (!this.settings.embedderModel) return;
-		const existing = this.debounceTimers.get(file.path);
+		const path = file.path;
+		const existing = this.debounceTimers.get(path);
 		if (existing !== undefined) window.clearTimeout(existing);
 		const handle = window.setTimeout(() => {
-			this.debounceTimers.delete(file.path);
+			this.debounceTimers.delete(path);
 			void this.indexFile(file).catch((err) => {
 				console.warn("[ollama-notes-chat] incremental index failed", file.path, err);
 			});
 		}, DEBOUNCE_MS);
-		this.debounceTimers.set(file.path, handle);
+		this.debounceTimers.set(path, handle);
 	}
 
 	cancelDebounced(): void {
+		// Unload must also invalidate responses already awaiting the server.
+		this.generation++;
 		for (const h of this.debounceTimers.values()) window.clearTimeout(h);
 		this.debounceTimers.clear();
 		if (this.saveTimer !== null) {
@@ -228,44 +241,50 @@ export class Indexer {
 		await this.store.save();
 	}
 
-	private async embedAndStore(file: TFile): Promise<void> {
+	private async embedAndStore(file: TFile): Promise<boolean> {
+		// Capture the version being read. TFile and settings are mutable while
+		// cachedRead/embed yield; an old response must never become a new index entry.
+		const path = file.path;
+		const mtime = file.stat.mtime;
+		const model = this.settings.embedderModel;
+		const generation = this.generation;
+		const chunkSize = this.settings.ragChunkSize;
+		const overlap = this.settings.ragChunkOverlap;
+		const job = {};
+		this.fileJobs.set(file, job);
+		const isCurrent = () =>
+			this.generation === generation &&
+			this.fileJobs.get(file) === job &&
+			this.settings.embedderModel === model &&
+			file.path === path && file.stat.mtime === mtime &&
+			this.app.vault.getAbstractFileByPath(path) === file;
+		if (!isCurrent()) return false;
 		const raw = await this.app.vault.cachedRead(file);
-		const chunks = chunkMarkdown(raw, {
-			chunkSize: this.settings.ragChunkSize,
-			overlap: this.settings.ragChunkOverlap,
-		});
-		if (chunks.length === 0) {
-			this.store.remove(file.path);
-			return;
-		}
+		if (!isCurrent()) return false;
+		const chunks = chunkMarkdown(raw, { chunkSize, overlap });
+		if (chunks.length === 0) return this.store.remove(path);
 		const indexed: IndexedChunk[] = [];
 		for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
+			if (!isCurrent()) return false;
 			const batch = chunks.slice(i, i + EMBED_BATCH);
-			const embeddings = await this.ollama.embed(
-				this.settings.embedderModel,
-				batch.map((c) => c.text),
-			);
+			const embeddings = await this.ollama.embed(model, batch.map((c) => c.text));
+			if (!isCurrent()) return false;
 			for (let j = 0; j < batch.length; j++) {
 				const chunk = batch[j];
 				const embedding = embeddings[j];
 				if (!chunk || !Array.isArray(embedding)) continue;
-				indexed.push({
-					heading: chunk.heading,
-					text: chunk.text,
-					embedding,
-				});
+				indexed.push({ heading: chunk.heading, text: chunk.text, embedding });
 			}
 			await yieldToEventLoop();
 		}
-		if (indexed.length === 0) {
-			this.store.remove(file.path);
-			return;
-		}
+		if (!isCurrent()) return false;
+		if (indexed.length === 0) return this.store.remove(path);
 		const firstIndexed = indexed[0];
 		if (firstIndexed && this.store.getEmbeddingDim() === 0) {
-			this.store.setEmbedderModel(this.settings.embedderModel, firstIndexed.embedding.length);
+			this.store.setEmbedderModel(model, firstIndexed.embedding.length);
 		}
-		this.store.upsert(file.path, indexed, file.stat.mtime);
+		this.store.upsert(path, indexed, mtime);
+		return true;
 	}
 
 	private emit(p: IndexProgress): void {

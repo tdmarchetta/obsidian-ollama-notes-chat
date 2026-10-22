@@ -45,7 +45,7 @@ export async function buildContext(
 	}
 
 	if (mode === "current-selection") {
-		const sel = getActiveSelection(app);
+		const sel = getActiveSelection(app, active);
 		if (sel && sel.trim().length > 0) {
 			const block = formatBlock(active, sel, "selection");
 			return finalize([block], [active], active, settings.truncationLimit);
@@ -117,9 +117,12 @@ export function describeActiveOverride(override: PerNoteFrontmatterOverride): st
 	return out;
 }
 
-function getActiveSelection(app: App): string | null {
-	const view = app.workspace.getActiveViewOfType(MarkdownView);
-	if (!view) return null;
+function getActiveSelection(app: App, source: TFile): string | null {
+	// Focusing the chat sidebar makes it the active view. The most recent
+	// main-area editor still owns the selection, provided it is our source note.
+	const view = app.workspace.getActiveViewOfType(MarkdownView)
+		?? app.workspace.getMostRecentLeaf()?.view;
+	if (!(view instanceof MarkdownView) || view.file?.path !== source.path) return null;
 	const editor = view.editor;
 	if (!editor) return null;
 	const sel = editor.getSelection();

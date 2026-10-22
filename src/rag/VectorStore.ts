@@ -30,6 +30,9 @@ export interface VectorStoreStats {
 }
 
 const CURRENT_INDEX_SCHEMA = 1;
+// Bound both synchronous serialization work and adapter writes. A fragment is
+// one chunk, never a whole note/index; UTF-16 pairs stay together across writes.
+const SAVE_BATCH_CHARS = 256 * 1024;
 
 export class VectorStore {
 	private adapter: DataAdapter;
@@ -38,6 +41,10 @@ export class VectorStore {
 	private embedderModel = "";
 	private embeddingDim = 0;
 	private loaded = false;
+	// All writers share the same temporary and backup paths. Requests arriving
+	// during a write share the next snapshot instead of queuing full rewrites.
+	private saving = false;
+	private pendingSaves: Array<{ resolve: () => void; reject: (reason: unknown) => void }> = [];
 	// Per-chunk L2 norms, memoized lazily and keyed by the chunk object so
 	// entries GC away when a note is re-chunked (upsert/load build fresh
 	// IndexedChunk objects). Never serialized — index.json is unaffected.
@@ -68,6 +75,7 @@ export class VectorStore {
 
 	async load(): Promise<void> {
 		this.loaded = true;
+		await this.restoreBackupIfMissing();
 		if (!(await this.adapter.exists(this.path))) return;
 		try {
 			const raw = await this.adapter.read(this.path);
@@ -102,14 +110,49 @@ export class VectorStore {
 		}
 	}
 
-	async save(): Promise<void> {
-		const data: VectorStoreFile = {
-			schemaVersion: CURRENT_INDEX_SCHEMA,
-			embedderModel: this.embedderModel,
-			embeddingDim: this.embeddingDim,
-			notes: Object.fromEntries(this.notes),
-		};
-		const serialized = JSON.stringify(data);
+	save(): Promise<void> {
+		const saved = new Promise<void>((resolve, reject) => {
+			this.pendingSaves.push({ resolve, reject });
+		});
+		if (!this.saving) {
+			this.saving = true;
+			void this.drainSaves();
+		}
+		return saved;
+	}
+
+	private async drainSaves(): Promise<void> {
+		try {
+			while (this.pendingSaves.length > 0) {
+				const requests = this.pendingSaves;
+				this.pendingSaves = [];
+				try {
+					await this.saveNow();
+					for (const request of requests) request.resolve();
+				} catch (err) {
+					for (const request of requests) request.reject(err);
+				}
+			}
+		} finally {
+			this.saving = false;
+		}
+	}
+
+	private async restoreBackupIfMissing(): Promise<void> {
+		const backup = `${this.path}.bak`;
+		if (!(await this.adapter.exists(this.path)) && (await this.adapter.exists(backup))) {
+			await this.adapter.rename(backup, this.path);
+		}
+	}
+
+	private async saveNow(): Promise<void> {
+		// Capture before the first await. Upsert/load replace note objects;
+		// remove/rename/clear change the Map, so this shallow snapshot stays
+		// consistent while later edits queue another save.
+		const notes = Array.from(this.notes);
+		const model = this.embedderModel;
+		const dim = this.embeddingDim;
+		await this.restoreBackupIfMissing();
 		const tmp = `${this.path}.tmp`;
 		const backup = `${this.path}.bak`;
 		// Crash-recoverable atomic write: write tmp, move existing aside to
@@ -119,9 +162,14 @@ export class VectorStore {
 		// remove-then-rename sequence had exactly that gap and would lose
 		// the entire index on a mid-write crash, forcing a full re-embed
 		// of the vault on next launch.
-		await this.adapter.write(tmp, serialized);
+		await this.writeTemporary(tmp, serializeSnapshot(model, dim, notes));
 		const hadOld = await this.adapter.exists(this.path);
-		if (hadOld) await this.adapter.rename(this.path, backup);
+		if (hadOld) {
+			// A crash after tmp became the live file can leave the previous
+			// backup behind. Remove it only while a live copy still exists.
+			if (await this.adapter.exists(backup)) await this.adapter.remove(backup);
+			await this.adapter.rename(this.path, backup);
+		}
 		try {
 			await this.adapter.rename(tmp, this.path);
 		} catch (err) {
@@ -138,6 +186,45 @@ export class VectorStore {
 		if (hadOld && (await this.adapter.exists(backup))) {
 			await this.adapter.remove(backup);
 		}
+	}
+
+	private async writeTemporary(path: string, fragments: Iterable<string>): Promise<void> {
+		let buffer = "";
+		let first = true;
+		const flush = async () => {
+			if (first) {
+				await this.adapter.write(path, buffer);
+				first = false;
+			} else {
+				await this.adapter.append(path, buffer);
+			}
+			buffer = "";
+		};
+		for (const fragment of fragments) {
+			let start = 0;
+			while (start < fragment.length) {
+				let end = Math.min(start + SAVE_BATCH_CHARS - buffer.length, fragment.length);
+				// Each append is UTF-8 encoded separately by the adapter. Never
+				// split a surrogate pair into two replacement characters.
+				if (end < fragment.length && end > start) {
+					const last = fragment.charCodeAt(end - 1);
+					const next = fragment.charCodeAt(end);
+					if (last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) end--;
+				}
+				if (end === start) {
+					await flush();
+					await yieldToEventLoop();
+					continue;
+				}
+				buffer += fragment.slice(start, end);
+				start = end;
+				if (buffer.length === SAVE_BATCH_CHARS) {
+					await flush();
+					await yieldToEventLoop();
+				}
+			}
+		}
+		if (buffer.length > 0) await flush();
 	}
 
 	upsert(notePath: string, chunks: IndexedChunk[], mtime: number): void {
@@ -201,6 +288,35 @@ export class VectorStore {
 		this.normCache.set(chunk, n);
 		return n;
 	}
+}
+
+function* serializeSnapshot(
+	model: string,
+	dim: number,
+	notes: Array<[string, IndexedNote]>,
+): Generator<string> {
+	const header = JSON.stringify({
+		schemaVersion: CURRENT_INDEX_SCHEMA,
+		embedderModel: model,
+		embeddingDim: dim,
+	});
+	yield `${header.slice(0, -1)},"notes":{`;
+	let firstNote = true;
+	for (const [path, note] of notes) {
+		yield `${firstNote ? "" : ","}${JSON.stringify(path)}:{"mtime":${JSON.stringify(note.mtime)},"chunks":[`;
+		firstNote = false;
+		let firstChunk = true;
+		for (const chunk of note.chunks) {
+			yield `${firstChunk ? "" : ","}${JSON.stringify(chunk)}`;
+			firstChunk = false;
+		}
+		yield "]}";
+	}
+	yield "}}";
+}
+
+function yieldToEventLoop(): Promise<void> {
+	return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 
 function isValidIndexedChunk(x: unknown): x is IndexedChunk {

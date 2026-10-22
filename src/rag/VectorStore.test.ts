@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { setTimeout as scheduleTimeout } from "node:timers";
 import type { DataAdapter } from "obsidian";
 import { VectorStore } from "./VectorStore";
+
+vi.stubGlobal("window", { setTimeout: scheduleTimeout });
 
 // In-memory DataAdapter so we can drive save() / load() without a real vault.
 // We only implement the surface VectorStore actually touches.
@@ -22,11 +25,18 @@ class FakeAdapter implements Partial<DataAdapter> {
 		this.files.set(p, data);
 		return Promise.resolve();
 	}
+	append(p: string, data: string): Promise<void> {
+		this.files.set(p, (this.files.get(p) ?? "") + data);
+		return Promise.resolve();
+	}
 	rename(oldPath: string, newPath: string): Promise<void> {
 		this.renameCalls.push([oldPath, newPath]);
 		const v = this.files.get(oldPath);
 		if (v === undefined) {
 			return Promise.reject(new Error(`not found: ${oldPath}`));
+		}
+		if (this.files.has(newPath)) {
+			return Promise.reject(new Error(`Destination file already exists: ${newPath}`));
 		}
 		this.files.delete(oldPath);
 		this.files.set(newPath, v);
@@ -52,6 +62,9 @@ class FaultyAdapter extends FakeAdapter {
 		if (v === undefined) {
 			return Promise.reject(new Error(`not found: ${oldPath}`));
 		}
+		if (this.files.has(newPath)) {
+			return Promise.reject(new Error(`Destination file already exists: ${newPath}`));
+		}
 		this.files.delete(oldPath);
 		this.files.set(newPath, v);
 		return Promise.resolve();
@@ -61,6 +74,47 @@ class FaultyAdapter extends FakeAdapter {
 const PATH = "index.json";
 
 describe("VectorStore.save", () => {
+	it("serializes overlapping writes and persists the latest state", async () => {
+		const adapter = new FakeAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await store.save();
+		store.upsert("a.md", [{ text: "a", embedding: [1] }], 1);
+		const first = store.save();
+		store.upsert("b.md", [{ text: "b", embedding: [1] }], 2);
+		await Promise.all([first, store.save()]);
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.knownPaths()).toEqual(["a.md", "b.md"]);
+		expect([...adapter.files.keys()]).toEqual([PATH]);
+	});
+
+	it("replaces a stale backup left after a successful rename", async () => {
+		const adapter = new FakeAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await store.save();
+		adapter.files.set(`${PATH}.bak`, adapter.files.get(PATH)!);
+		store.upsert("new.md", [{ text: "new", embedding: [1] }], 2);
+		await store.save();
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.hasNote("new.md")).toBe(true);
+		expect(adapter.files.has(`${PATH}.bak`)).toBe(false);
+	});
+
+	it("allows a later save after a failed transaction", async () => {
+		const adapter = new FaultyAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await store.save();
+		adapter.failOnRename = adapter.renameCalls.length + 2;
+		await expect(store.save()).rejects.toThrow(/simulated rename failure/);
+		adapter.failOnRename = null;
+		store.upsert("retry.md", [{ text: "retry", embedding: [1] }], 3);
+		await store.save();
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.hasNote("retry.md")).toBe(true);
+	});
+
 	it("writes a fresh file when none exists", async () => {
 		const adapter = new FakeAdapter();
 		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
@@ -144,7 +198,155 @@ describe("VectorStore.save", () => {
 	});
 });
 
+// Several MiB in one note catches whole-note as well as whole-index stringify.
+function largeChunks() {
+	return Array.from({ length: 160 }, (_, i) => ({
+		heading: `Section ${i}`,
+		text: "x".repeat(16384),
+		embedding: [1, 0, 0],
+	}));
+}
+
+describe("VectorStore responsive persistence", () => {
+	it("lets a timer run during a large note save and bounds each storage write", async () => {
+		let heartbeat = false;
+		const sizes: number[] = [];
+		class RecordingAdapter extends FakeAdapter {
+			override write(p: string, data: string): Promise<void> {
+				sizes.push(data.length);
+				return super.write(p, data);
+			}
+			override append(p: string, data: string): Promise<void> {
+				sizes.push(data.length);
+				return super.append(p, data);
+			}
+		}
+		const adapter = new RecordingAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		store.upsert("large.md", largeChunks(), 1);
+		window.setTimeout(() => { heartbeat = true; }, 0);
+		await store.save();
+		expect(heartbeat).toBe(true);
+		expect(Math.max(...sizes)).toBeLessThanOrEqual(1024 * 1024);
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.stats()).toEqual({ notes: 1, chunks: 160 });
+	});
+
+	it("coalesces queued requests and keeps each published snapshot consistent", async () => {
+		let release!: () => void;
+		let entered!: () => void;
+		const gate = new Promise<void>((resolve) => { release = resolve; });
+		const started = new Promise<void>((resolve) => { entered = resolve; });
+		const published: unknown[] = [];
+		class GatedAdapter extends FakeAdapter {
+			writes = 0;
+			override async write(p: string, data: string): Promise<void> {
+				if (++this.writes === 1) {
+					entered();
+					await gate;
+				}
+				await super.write(p, data);
+			}
+			override async rename(a: string, b: string): Promise<void> {
+				await super.rename(a, b);
+				if (b === PATH) published.push(JSON.parse(this.files.get(PATH)!));
+			}
+		}
+		const adapter = new GatedAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		store.setEmbedderModel("before", 3);
+		store.upsert("old.md", largeChunks(), 1);
+		const first = store.save();
+		await started;
+		store.clear();
+		store.setEmbedderModel("after", 1);
+		store.upsert("new.md", [{ text: "latest", embedding: [1] }], 2);
+		let settled = false;
+		const queued = Array.from({ length: 12 }, () => store.save());
+		void queued[0]!.then(() => { settled = true; });
+		await Promise.resolve();
+		expect(settled).toBe(false);
+		release();
+		await Promise.all([first, ...queued]);
+		expect(published).toHaveLength(2);
+		expect(published[0]).toMatchObject({
+			embedderModel: "before", embeddingDim: 3,
+			notes: { "old.md": { mtime: 1, chunks: largeChunks() } },
+		});
+		expect(published[1]).toEqual({
+			schemaVersion: 1, embedderModel: "after", embeddingDim: 1,
+			notes: { "new.md": { mtime: 2, chunks: [{ text: "latest", embedding: [1] }] } },
+		});
+		expect(settled).toBe(true);
+	});
+
+	it("preserves the live index after an append failure and permits a retry", async () => {
+		class FailingAppendAdapter extends FakeAdapter {
+			fail = true;
+			override append(p: string, data: string): Promise<void> {
+				if (this.fail) return Promise.reject(new Error("append failed"));
+				return super.append(p, data);
+			}
+		}
+		const adapter = new FailingAppendAdapter();
+		const original = JSON.stringify({ schemaVersion: 1, marker: "original" });
+		adapter.files.set(PATH, original);
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		store.upsert("large.md", largeChunks(), 1);
+		await expect(store.save()).rejects.toThrow("append failed");
+		expect(adapter.files.get(PATH)).toBe(original);
+		expect(adapter.files.has(`${PATH}.bak`)).toBe(false);
+		adapter.fail = false;
+		await store.save();
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.stats()).toEqual({ notes: 1, chunks: 160 });
+	});
+
+	it("round-trips escaped paths, headings and Unicode across storage boundaries", async () => {
+		// Real adapters encode each call independently; string concatenation
+		// alone would hide a surrogate pair split across two append calls.
+		class EncodingAdapter extends FakeAdapter {
+			override write(p: string, data: string): Promise<void> {
+				return super.write(p, new TextDecoder().decode(new TextEncoder().encode(data)));
+			}
+			override append(p: string, data: string): Promise<void> {
+				return super.append(p, new TextDecoder().decode(new TextEncoder().encode(data)));
+			}
+		}
+		const adapter = new EncodingAdapter();
+		const store = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		const text = "😀漢字\"\n".repeat(70000);
+		const notePath = "folder/quoted \" emoji😀.md";
+		store.upsert(notePath, [{ heading: "\n\"😀", text, embedding: [1, 2] }], 17);
+		await store.save();
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.topK([1, 2], 1)[0]).toMatchObject({
+			notePath, chunk: { heading: "\n\"😀", text, embedding: [1, 2] },
+		});
+	});
+});
+
 describe("VectorStore.load", () => {
+	it("recovers the backup when a crash interrupted the final rename", async () => {
+		const adapter = new FakeAdapter();
+		const original = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		original.setEmbedderModel("e", 1);
+		original.upsert("saved.md", [{ text: "saved", embedding: [1] }], 7);
+		await original.save();
+		await adapter.rename(PATH, `${PATH}.bak`);
+		adapter.files.set(`${PATH}.tmp`, "interrupted write");
+		const loaded = new VectorStore(adapter as unknown as DataAdapter, PATH);
+		await loaded.load();
+		expect(loaded.hasNote("saved.md")).toBe(true);
+		expect(loaded.getEmbedderModel()).toBe("e");
+		expect(adapter.files.has(PATH)).toBe(true);
+		await loaded.save();
+		expect([...adapter.files.keys()]).toEqual([PATH]);
+	});
+
 	it("silently drops chunks with non-finite embedding values", async () => {
 		const adapter = new FakeAdapter();
 		adapter.files.set(

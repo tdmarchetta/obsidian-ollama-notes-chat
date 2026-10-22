@@ -184,3 +184,14 @@ describe("ConversationStore — toPersistable", () => {
 		expect(store.toPersistable().activeConversationId).toBeNull();
 	});
 });
+
+describe("first chat persistence", () => {
+	it("keeps the first hydrated chat active after saving and across view hydration", () => {
+		const store = new ConversationStore([]);
+		const conv = store.hydrateActive();
+		expect(store.hydrateActive().id).toBe(conv.id);
+		conv.addUser("first question");
+		store.upsert(conv.toSnapshot());
+		expect(store.toPersistable().activeConversationId).toBe(conv.id);
+	});
+});
